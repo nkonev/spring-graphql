@@ -22,14 +22,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.regex.Pattern;
 
 import javax.servlet.ServletException;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.springframework.graphql.server.support.MultipartVariableMapper;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.support.AbstractMultipartHttpServletRequest;
 import reactor.core.publisher.Mono;
@@ -69,14 +70,31 @@ public class GraphQlHttpHandler {
 
 	private final WebGraphQlHandler graphQlHandler;
 
+    private final ObjectMapper objectMapper;
+
 	/**
 	 * Create a new instance.
 	 * @param graphQlHandler common handler for GraphQL over HTTP requests
+     * @deprecated Use GraphQlHttpHandler(WebGraphQlHandler graphQlHandler, ObjectMapper objectMapper) instead.
 	 */
-	public GraphQlHttpHandler(WebGraphQlHandler graphQlHandler) {
+    @Deprecated
+    public GraphQlHttpHandler(WebGraphQlHandler graphQlHandler) {
 		Assert.notNull(graphQlHandler, "WebGraphQlHandler is required");
 		this.graphQlHandler = graphQlHandler;
+        this.objectMapper = new ObjectMapper();
 	}
+
+    /**
+     * Create a new instance.
+     * @param graphQlHandler common handler for GraphQL over HTTP requests
+     * @param objectMapper ObjectMapper used for parsing form parts
+     */
+    public GraphQlHttpHandler(WebGraphQlHandler graphQlHandler, ObjectMapper objectMapper) {
+        Assert.notNull(graphQlHandler, "WebGraphQlHandler is required");
+        Assert.notNull(objectMapper, "ObjectMapper is required");
+        this.graphQlHandler = graphQlHandler;
+        this.objectMapper = objectMapper;
+    }
 
 	/**
 	 * Handle GraphQL requests over HTTP.
@@ -112,7 +130,7 @@ public class GraphQlHttpHandler {
 	public ServerResponse handleMultipartRequest(ServerRequest serverRequest) throws ServletException {
 		Optional<String> operation = serverRequest.param("operations");
 		Optional<String> mapParam = serverRequest.param("map");
-		Map<String, Object> inputQuery = readJson(operation, new TypeReference<>() {});
+		Map<String, Object> inputQuery = readJson(operation, new TypeReference<Map<String, Object>>() {});
 		final Map<String, Object> queryVariables;
 		if (inputQuery.containsKey("variables")) {
 			queryVariables = (Map<String, Object>)inputQuery.get("variables");
@@ -125,7 +143,7 @@ public class GraphQlHttpHandler {
 		}
 
 		Map<String, MultipartFile> fileParams = getMultipartMap(serverRequest);
-		Map<String, List<String>> fileMapInput = readJson(mapParam, new TypeReference<>() {});
+		Map<String, List<String>> fileMapInput = readJson(mapParam, new TypeReference<Map<String, List<String>>>() {});
 		fileMapInput.forEach((String fileKey, List<String> objectPaths) -> {
 			MultipartFile file = fileParams.get(fileKey);
 			if (file != null) {
@@ -210,83 +228,3 @@ public class GraphQlHttpHandler {
 	}
 
 }
-
-// As in DGS, this is borrowed from https://github.com/graphql-java-kickstart/graphql-java-servlet/blob/eb4dfdb5c0198adc1b4d4466c3b4ea4a77def5d1/graphql-java-servlet/src/main/java/graphql/kickstart/servlet/core/internal/VariableMapper.java
-class MultipartVariableMapper {
-
-	private static final Pattern PERIOD = Pattern.compile("\\.");
-
-	private static final Mapper<Map<String, Object>> MAP_MAPPER =
-		new Mapper<Map<String, Object>>() {
-			@Override
-			public Object set(Map<String, Object> location, String target, MultipartFile value) {
-				return location.put(target, value);
-			}
-
-			@Override
-			public Object recurse(Map<String, Object> location, String target) {
-				return location.get(target);
-			}
-		};
-	private static final Mapper<List<Object>> LIST_MAPPER =
-		new Mapper<List<Object>>() {
-			@Override
-			public Object set(List<Object> location, String target, MultipartFile value) {
-				return location.set(Integer.parseInt(target), value);
-			}
-
-			@Override
-			public Object recurse(List<Object> location, String target) {
-				return location.get(Integer.parseInt(target));
-			}
-		};
-
-	@SuppressWarnings({"unchecked", "rawtypes"})
-	public static void mapVariable(String objectPath, Map<String, Object> variables, MultipartFile part) {
-		String[] segments = PERIOD.split(objectPath);
-
-		if (segments.length < 2) {
-			throw new RuntimeException("object-path in map must have at least two segments");
-		} else if (!"variables".equals(segments[0])) {
-			throw new RuntimeException("can only map into variables");
-		}
-
-		Object currentLocation = variables;
-		for (int i = 1; i < segments.length; i++) {
-			String segmentName = segments[i];
-			Mapper mapper = determineMapper(currentLocation, objectPath, segmentName);
-
-			if (i == segments.length - 1) {
-				if (null != mapper.set(currentLocation, segmentName, part)) {
-					throw new RuntimeException("expected null value when mapping " + objectPath);
-				}
-			} else {
-				currentLocation = mapper.recurse(currentLocation, segmentName);
-				if (null == currentLocation) {
-					throw new RuntimeException(
-						"found null intermediate value when trying to map " + objectPath);
-				}
-			}
-		}
-	}
-
-	private static Mapper<?> determineMapper(
-		Object currentLocation, String objectPath, String segmentName) {
-		if (currentLocation instanceof Map) {
-			return MAP_MAPPER;
-		} else if (currentLocation instanceof List) {
-			return LIST_MAPPER;
-		}
-
-		throw new RuntimeException(
-			"expected a map or list at " + segmentName + " when trying to map " + objectPath);
-	}
-
-	interface Mapper<T> {
-
-		Object set(T location, String target, MultipartFile value);
-
-		Object recurse(T location, String target);
-	}
-}
-
