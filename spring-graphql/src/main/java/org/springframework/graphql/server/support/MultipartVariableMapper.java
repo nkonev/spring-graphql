@@ -5,7 +5,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
-// As in DGS, this is borrowed from graphql-java-kickstart
+/**
+ * Maps {@link javax.servlet.http.Part} to GraphQL variables.
+ * Borrowed from graphql-java-kickstart.
+ */
 public class MultipartVariableMapper {
 
     private static final Pattern PERIOD = Pattern.compile("\\.");

@@ -211,9 +211,9 @@ public class GraphQlHttpHandler {
                 }
             }
         } catch (Exception e) {
-            throw new RuntimeException("Unable to read type " + bodyType, e);
+            throw new ServerWebInputException("Unable to read type " + bodyType, null, e);
         }
-        throw new RuntimeException("Unable to find converter for type " + bodyType);
+        throw new ServerWebInputException("Unable to find converter for type " + bodyType);
     }
 
 	private Map<String, Object> getFromMapOrEmpty(Map<String, Object> input, String key) {
