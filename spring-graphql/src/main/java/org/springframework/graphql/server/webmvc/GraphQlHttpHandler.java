@@ -17,17 +17,12 @@
 package org.springframework.graphql.server.webmvc;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.io.InputStream;
+import java.lang.reflect.Type;
+import java.util.*;
 
 import javax.servlet.ServletException;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.graphql.server.support.MultipartVariableMapper;
@@ -39,7 +34,11 @@ import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.graphql.server.WebGraphQlHandler;
 import org.springframework.graphql.server.WebGraphQlRequest;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpInputMessage;
 import org.springframework.http.MediaType;
+import org.springframework.http.converter.GenericHttpMessageConverter;
+import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.util.AlternativeJdkIdGenerator;
 import org.springframework.util.Assert;
 import org.springframework.util.IdGenerator;
@@ -63,38 +62,28 @@ public class GraphQlHttpHandler {
 	private static final ParameterizedTypeReference<Map<String, Object>> MAP_PARAMETERIZED_TYPE_REF =
 			new ParameterizedTypeReference<Map<String, Object>>() {};
 
+    private static final ParameterizedTypeReference<Map<String, List<String>>> LIST_PARAMETERIZED_TYPE_REF =
+            new ParameterizedTypeReference<Map<String, List<String>>>() {};
+
 	private static final List<MediaType> SUPPORTED_MEDIA_TYPES =
 			Arrays.asList(MediaType.APPLICATION_GRAPHQL, MediaType.APPLICATION_JSON);
 
-	private final IdGenerator idGenerator = new AlternativeJdkIdGenerator();
+    private static final List<MediaType> PARTS_SUPPORTED_MEDIA_TYPES =
+            Collections.singletonList(MediaType.APPLICATION_JSON);
+
+    private final IdGenerator idGenerator = new AlternativeJdkIdGenerator();
 
 	private final WebGraphQlHandler graphQlHandler;
-
-    private final ObjectMapper objectMapper;
 
 	/**
 	 * Create a new instance.
 	 * @param graphQlHandler common handler for GraphQL over HTTP requests
      * @deprecated Use GraphQlHttpHandler(WebGraphQlHandler graphQlHandler, ObjectMapper objectMapper) instead.
 	 */
-    @Deprecated
     public GraphQlHttpHandler(WebGraphQlHandler graphQlHandler) {
 		Assert.notNull(graphQlHandler, "WebGraphQlHandler is required");
 		this.graphQlHandler = graphQlHandler;
-        this.objectMapper = new ObjectMapper();
 	}
-
-    /**
-     * Create a new instance.
-     * @param graphQlHandler common handler for GraphQL over HTTP requests
-     * @param objectMapper ObjectMapper used for parsing form parts
-     */
-    public GraphQlHttpHandler(WebGraphQlHandler graphQlHandler, ObjectMapper objectMapper) {
-        Assert.notNull(graphQlHandler, "WebGraphQlHandler is required");
-        Assert.notNull(objectMapper, "ObjectMapper is required");
-        this.graphQlHandler = graphQlHandler;
-        this.objectMapper = objectMapper;
-    }
 
 	/**
 	 * Handle GraphQL requests over HTTP.
@@ -127,10 +116,53 @@ public class GraphQlHttpHandler {
 		return ServerResponse.async(responseMono);
 	}
 
+    private <T> T read(
+            MultipartFile m,
+            Type bodyType,
+            List<org.springframework.http.converter.HttpMessageConverter<?>> messageConverters
+    ) {
+        Class<?> bodyClass = Map.class;
+        MediaType contentType =
+                Optional.ofNullable(m.getContentType())
+                        .map(MediaType::parseMediaType)
+                        .orElse(MediaType.APPLICATION_JSON);
+        HttpInputMessage inputMessage = new PartHttpInput(m, contentType);
+        try {
+            for (HttpMessageConverter<?> messageConverter : messageConverters) {
+                if (messageConverter instanceof GenericHttpMessageConverter) {
+                    GenericHttpMessageConverter<T> genericMessageConverter =
+                            (GenericHttpMessageConverter<T>) messageConverter;
+                    if (genericMessageConverter.canRead(bodyType, bodyClass, contentType)) {
+                        return genericMessageConverter.read(bodyType, bodyClass, inputMessage);
+                    }
+                }
+                if (messageConverter.canRead(bodyClass, contentType)) {
+                    HttpMessageConverter<T> theConverter =
+                            (HttpMessageConverter<T>) messageConverter;
+                    Class<? extends T> clazz = (Class<? extends T>) bodyClass;
+                    return theConverter.read(clazz, inputMessage);
+                }
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Unable to read type " + bodyType, e);
+        }
+        throw new RuntimeException("Unable to find converter for type " + bodyType);
+    }
+
 	public ServerResponse handleMultipartRequest(ServerRequest serverRequest) throws ServletException {
-		Optional<String> operation = serverRequest.param("operations");
-		Optional<String> mapParam = serverRequest.param("map");
-		Map<String, Object> inputQuery = readJson(operation, new TypeReference<Map<String, Object>>() {});
+        Map<String, MultipartFile> allParts = getMultipartMap(serverRequest);
+
+        Optional<MultipartFile> operation = Optional.ofNullable(allParts.get("operations"));
+        Optional<MultipartFile> mapParam = Optional.ofNullable(allParts.get("map"));
+
+        Map<String, Object> inputQuery = operation
+            .map(mp -> this.<Map<String, Object>>read(
+                mp,
+                MAP_PARAMETERIZED_TYPE_REF.getType(),
+                serverRequest.messageConverters()
+            ))
+            .orElse(Collections.emptyMap());
+
 		final Map<String, Object> queryVariables;
 		if (inputQuery.containsKey("variables")) {
 			queryVariables = (Map<String, Object>)inputQuery.get("variables");
@@ -142,10 +174,16 @@ public class GraphQlHttpHandler {
 			extensions = (Map<String, Object>)inputQuery.get("extensions");
 		}
 
-		Map<String, MultipartFile> fileParams = getMultipartMap(serverRequest);
-		Map<String, List<String>> fileMapInput = readJson(mapParam, new TypeReference<Map<String, List<String>>>() {});
+		Map<String, List<String>> fileMapInput =
+                mapParam.map(mp -> this.<Map<String, List<String>>>read(
+                    mp,
+                    LIST_PARAMETERIZED_TYPE_REF.getType(),
+                    serverRequest.messageConverters()
+                ))
+                .orElse(Collections.emptyMap());
+
 		fileMapInput.forEach((String fileKey, List<String> objectPaths) -> {
-			MultipartFile file = fileParams.get(fileKey);
+			MultipartFile file = allParts.get(fileKey);
 			if (file != null) {
 				objectPaths.forEach((String objectPath) -> {
 					MultipartVariableMapper.mapVariable(
@@ -186,18 +224,6 @@ public class GraphQlHttpHandler {
 		return ServerResponse.async(responseMono);
 	}
 
-	private <T> T readJson(Optional<String> string, TypeReference<T> t) {
-		Map<String, Object> map = new HashMap<>();
-		if (string.isPresent()) {
-			try {
-				return objectMapper.readValue(string.get(), t);
-			} catch (JsonProcessingException e) {
-				throw new RuntimeException(e);
-			}
-		}
-		return (T)map;
-	}
-
 	private static Map<String, MultipartFile> getMultipartMap(ServerRequest request) {
 		try {
 			AbstractMultipartHttpServletRequest abstractMultipartHttpServletRequest =
@@ -227,4 +253,28 @@ public class GraphQlHttpHandler {
 		return MediaType.APPLICATION_JSON;
 	}
 
+}
+
+class PartHttpInput implements HttpInputMessage {
+
+    private final MultipartFile multipartFile;
+
+    private final HttpHeaders headers;
+
+    public PartHttpInput(MultipartFile multipartFile, MediaType mediaType) {
+        this.multipartFile = multipartFile;
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setContentType(mediaType);
+        this.headers = httpHeaders;
+    }
+
+    @Override
+    public InputStream getBody() throws IOException {
+        return multipartFile.getInputStream();
+    }
+
+    @Override
+    public HttpHeaders getHeaders() {
+        return headers;
+    }
 }
