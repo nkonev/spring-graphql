@@ -72,16 +72,15 @@ public class GraphQlHttpHandler {
 	private static final List<MediaType> SUPPORTED_MEDIA_TYPES =
 			Arrays.asList(MediaType.APPLICATION_GRAPHQL, MediaType.APPLICATION_JSON);
 
-    private final IdGenerator idGenerator = new AlternativeJdkIdGenerator();
+	private final IdGenerator idGenerator = new AlternativeJdkIdGenerator();
 
 	private final WebGraphQlHandler graphQlHandler;
 
 	/**
 	 * Create a new instance.
 	 * @param graphQlHandler common handler for GraphQL over HTTP requests
-     * @deprecated Use GraphQlHttpHandler(WebGraphQlHandler graphQlHandler, ObjectMapper objectMapper) instead.
 	 */
-    public GraphQlHttpHandler(WebGraphQlHandler graphQlHandler) {
+	public GraphQlHttpHandler(WebGraphQlHandler graphQlHandler) {
 		Assert.notNull(graphQlHandler, "WebGraphQlHandler is required");
 		this.graphQlHandler = graphQlHandler;
 	}
