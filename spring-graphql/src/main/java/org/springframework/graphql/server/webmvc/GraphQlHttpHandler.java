@@ -19,7 +19,11 @@ package org.springframework.graphql.server.webmvc;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Type;
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.HashMap;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.Part;
@@ -52,6 +56,7 @@ import org.springframework.web.servlet.function.ServerResponse;
  *
  * @author Rossen Stoyanchev
  * @author Brian Clozel
+ * @author Nikita Konev
  * @since 1.0.0
  */
 public class GraphQlHttpHandler {
@@ -66,9 +71,6 @@ public class GraphQlHttpHandler {
 
 	private static final List<MediaType> SUPPORTED_MEDIA_TYPES =
 			Arrays.asList(MediaType.APPLICATION_GRAPHQL, MediaType.APPLICATION_JSON);
-
-    private static final List<MediaType> PARTS_SUPPORTED_MEDIA_TYPES =
-            Collections.singletonList(MediaType.APPLICATION_JSON);
 
     private final IdGenerator idGenerator = new AlternativeJdkIdGenerator();
 
@@ -160,7 +162,7 @@ public class GraphQlHttpHandler {
                     MAP_PARAMETERIZED_TYPE_REF.getType(),
                     serverRequest.messageConverters()
             ))
-            .orElse(Collections.emptyMap());
+            .orElse(new HashMap<>());
 
 		final Map<String, Object> queryVariables;
 		if (inputQuery.containsKey("variables")) {
@@ -179,7 +181,7 @@ public class GraphQlHttpHandler {
                     LIST_PARAMETERIZED_TYPE_REF.getType(),
                     serverRequest.messageConverters()
                 ))
-                .orElse(Collections.emptyMap());
+                .orElse(new HashMap<>());
 
 		fileMapInput.forEach((String fileKey, List<String> objectPaths) -> {
 			Part file = allParts.get(fileKey);
