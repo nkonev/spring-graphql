@@ -117,39 +117,6 @@ public class GraphQlHttpHandler {
 		return ServerResponse.async(responseMono);
 	}
 
-    private <T> T readPartToMap(
-            Part part,
-            Type bodyType,
-            List<org.springframework.http.converter.HttpMessageConverter<?>> messageConverters
-    ) {
-        Class<?> bodyClass = Map.class;
-        MediaType contentType =
-                Optional.ofNullable(part.getContentType())
-                        .map(MediaType::parseMediaType)
-                        .orElse(MediaType.APPLICATION_JSON);
-        HttpInputMessage inputMessage = new PartHttpInput(part, contentType);
-        try {
-            for (HttpMessageConverter<?> messageConverter : messageConverters) {
-                if (messageConverter instanceof GenericHttpMessageConverter) {
-                    GenericHttpMessageConverter<T> genericMessageConverter =
-                            (GenericHttpMessageConverter<T>) messageConverter;
-                    if (genericMessageConverter.canRead(bodyType, bodyClass, contentType)) {
-                        return genericMessageConverter.read(bodyType, bodyClass, inputMessage);
-                    }
-                }
-                if (messageConverter.canRead(bodyClass, contentType)) {
-                    HttpMessageConverter<T> theConverter =
-                            (HttpMessageConverter<T>) messageConverter;
-                    Class<? extends T> clazz = (Class<? extends T>) bodyClass;
-                    return theConverter.read(clazz, inputMessage);
-                }
-            }
-        } catch (Exception e) {
-            throw new RuntimeException("Unable to read type " + bodyType, e);
-        }
-        throw new RuntimeException("Unable to find converter for type " + bodyType);
-    }
-
 	public ServerResponse handleMultipartRequest(ServerRequest serverRequest) throws ServletException {
         Map<String, Part> allParts = getMultipartMap(serverRequest);
 
@@ -224,6 +191,39 @@ public class GraphQlHttpHandler {
 
 		return ServerResponse.async(responseMono);
 	}
+
+    private <T> T readPartToMap(
+            Part part,
+            Type bodyType,
+            List<org.springframework.http.converter.HttpMessageConverter<?>> messageConverters
+    ) {
+        Class<?> bodyClass = Map.class;
+        MediaType contentType =
+                Optional.ofNullable(part.getContentType())
+                        .map(MediaType::parseMediaType)
+                        .orElse(MediaType.APPLICATION_JSON);
+        HttpInputMessage inputMessage = new PartHttpInput(part, contentType);
+        try {
+            for (HttpMessageConverter<?> messageConverter : messageConverters) {
+                if (messageConverter instanceof GenericHttpMessageConverter) {
+                    GenericHttpMessageConverter<T> genericMessageConverter =
+                            (GenericHttpMessageConverter<T>) messageConverter;
+                    if (genericMessageConverter.canRead(bodyType, bodyClass, contentType)) {
+                        return genericMessageConverter.read(bodyType, bodyClass, inputMessage);
+                    }
+                }
+                if (messageConverter.canRead(bodyClass, contentType)) {
+                    HttpMessageConverter<T> theConverter =
+                            (HttpMessageConverter<T>) messageConverter;
+                    Class<? extends T> clazz = (Class<? extends T>) bodyClass;
+                    return theConverter.read(clazz, inputMessage);
+                }
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Unable to read type " + bodyType, e);
+        }
+        throw new RuntimeException("Unable to find converter for type " + bodyType);
+    }
 
 	private static Map<String, Part> getMultipartMap(ServerRequest request) {
 		try {
