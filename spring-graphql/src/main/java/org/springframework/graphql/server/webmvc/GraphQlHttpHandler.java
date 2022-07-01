@@ -117,7 +117,7 @@ public class GraphQlHttpHandler {
 		return ServerResponse.async(responseMono);
 	}
 
-    private <T> T read(
+    private <T> T readPartToMap(
             Part part,
             Type bodyType,
             List<org.springframework.http.converter.HttpMessageConverter<?>> messageConverters
@@ -157,7 +157,7 @@ public class GraphQlHttpHandler {
         Optional<Part> mapParam = Optional.ofNullable(allParts.get("map"));
 
         Map<String, Object> inputQuery = operation
-            .map(part -> this.<Map<String, Object>>read(
+            .map(part -> this.<Map<String, Object>>readPartToMap(
                     part,
                     MAP_PARAMETERIZED_TYPE_REF.getType(),
                     serverRequest.messageConverters()
@@ -176,7 +176,7 @@ public class GraphQlHttpHandler {
 		}
 
 		Map<String, List<String>> fileMapInput =
-                mapParam.map(part -> this.<Map<String, List<String>>>read(
+                mapParam.map(part -> this.<Map<String, List<String>>>readPartToMap(
                     part,
                     LIST_PARAMETERIZED_TYPE_REF.getType(),
                     serverRequest.messageConverters()
