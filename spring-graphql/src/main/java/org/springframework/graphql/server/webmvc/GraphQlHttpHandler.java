@@ -130,16 +130,8 @@ public class GraphQlHttpHandler {
             ))
             .orElse(new HashMap<>());
 
-		final Map<String, Object> queryVariables;
-		if (inputQuery.containsKey("variables")) {
-			queryVariables = (Map<String, Object>)inputQuery.get("variables");
-		} else {
-			queryVariables = new HashMap<>();
-		}
-		Map<String, Object> extensions = new HashMap<>();
-		if (inputQuery.containsKey("extensions")) {
-			extensions = (Map<String, Object>)inputQuery.get("extensions");
-		}
+		final Map<String, Object> queryVariables = getFromMapOrEmpty(inputQuery, "variables");
+		final Map<String, Object> extensions = getFromMapOrEmpty(inputQuery, "extensions");
 
 		Map<String, List<String>> fileMapInput =
                 mapParam.map(part -> this.<Map<String, List<String>>>readPartToMap(
@@ -223,6 +215,14 @@ public class GraphQlHttpHandler {
         }
         throw new RuntimeException("Unable to find converter for type " + bodyType);
     }
+
+	private Map<String, Object> getFromMapOrEmpty(Map<String, Object> input, String key) {
+		if (input.containsKey(key)) {
+			return (Map<String, Object>)input.get(key);
+		} else {
+			return new HashMap<>();
+		}
+	}
 
 	private static Map<String, Part> getMultipartMap(ServerRequest request) {
 		try {
