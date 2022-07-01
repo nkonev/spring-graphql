@@ -14,7 +14,13 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-public class UploadWebMvcCoercing implements Coercing<MultipartFile, Part> {
+public class UploadWebMvcCoercing implements Coercing<Object, Part> {
+
+    private final boolean parsePartAsMultipartFile;
+
+    public UploadWebMvcCoercing(boolean parsePartAsMultipartFile) {
+        this.parsePartAsMultipartFile = parsePartAsMultipartFile;
+    }
 
     @Override
     public Part serialize(Object dataFetcherResult) throws CoercingSerializeException {
@@ -22,13 +28,14 @@ public class UploadWebMvcCoercing implements Coercing<MultipartFile, Part> {
     }
 
     @Override
-    public MultipartFile parseValue(Object input) throws CoercingParseValueException {
-        if (input instanceof MultipartFile) {
-            return (MultipartFile)input;
-        }
+    public Object parseValue(Object input) throws CoercingParseValueException {
         if (input instanceof Part) {
             Part part = (Part) input;
-            return new GraphqlStandardMultipartFile(part);
+            if (parsePartAsMultipartFile) {
+                return new GraphqlStandardMultipartFile(part);
+            } else {
+                return part;
+            }
         }
         throw new CoercingParseValueException(
                 String.format("Expected a 'MultipartFile' like object but was '%s'.", input != null ? input.getClass() : null)
@@ -36,7 +43,7 @@ public class UploadWebMvcCoercing implements Coercing<MultipartFile, Part> {
     }
 
     @Override
-    public MultipartFile parseLiteral(Object input) throws CoercingParseLiteralException {
+    public Object parseLiteral(Object input) throws CoercingParseLiteralException {
         throw new CoercingParseLiteralException("Parsing literal of 'MultipartFile' is not supported");
     }
 }
