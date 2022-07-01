@@ -22,12 +22,11 @@ import java.lang.reflect.Type;
 import java.util.*;
 
 import javax.servlet.ServletException;
+import javax.servlet.http.Part;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.graphql.server.support.MultipartVariableMapper;
-import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.multipart.support.AbstractMultipartHttpServletRequest;
 import reactor.core.publisher.Mono;
 
 import org.springframework.context.i18n.LocaleContextHolder;
@@ -117,16 +116,16 @@ public class GraphQlHttpHandler {
 	}
 
     private <T> T read(
-            MultipartFile m,
+            Part part,
             Type bodyType,
             List<org.springframework.http.converter.HttpMessageConverter<?>> messageConverters
     ) {
         Class<?> bodyClass = Map.class;
         MediaType contentType =
-                Optional.ofNullable(m.getContentType())
+                Optional.ofNullable(part.getContentType())
                         .map(MediaType::parseMediaType)
                         .orElse(MediaType.APPLICATION_JSON);
-        HttpInputMessage inputMessage = new PartHttpInput(m, contentType);
+        HttpInputMessage inputMessage = new PartHttpInput(part, contentType);
         try {
             for (HttpMessageConverter<?> messageConverter : messageConverters) {
                 if (messageConverter instanceof GenericHttpMessageConverter) {
@@ -150,16 +149,16 @@ public class GraphQlHttpHandler {
     }
 
 	public ServerResponse handleMultipartRequest(ServerRequest serverRequest) throws ServletException {
-        Map<String, MultipartFile> allParts = getMultipartMap(serverRequest);
+        Map<String, Part> allParts = getMultipartMap(serverRequest);
 
-        Optional<MultipartFile> operation = Optional.ofNullable(allParts.get("operations"));
-        Optional<MultipartFile> mapParam = Optional.ofNullable(allParts.get("map"));
+        Optional<Part> operation = Optional.ofNullable(allParts.get("operations"));
+        Optional<Part> mapParam = Optional.ofNullable(allParts.get("map"));
 
         Map<String, Object> inputQuery = operation
-            .map(mp -> this.<Map<String, Object>>read(
-                mp,
-                MAP_PARAMETERIZED_TYPE_REF.getType(),
-                serverRequest.messageConverters()
+            .map(part -> this.<Map<String, Object>>read(
+                    part,
+                    MAP_PARAMETERIZED_TYPE_REF.getType(),
+                    serverRequest.messageConverters()
             ))
             .orElse(Collections.emptyMap());
 
@@ -175,15 +174,15 @@ public class GraphQlHttpHandler {
 		}
 
 		Map<String, List<String>> fileMapInput =
-                mapParam.map(mp -> this.<Map<String, List<String>>>read(
-                    mp,
+                mapParam.map(part -> this.<Map<String, List<String>>>read(
+                    part,
                     LIST_PARAMETERIZED_TYPE_REF.getType(),
                     serverRequest.messageConverters()
                 ))
                 .orElse(Collections.emptyMap());
 
 		fileMapInput.forEach((String fileKey, List<String> objectPaths) -> {
-			MultipartFile file = allParts.get(fileKey);
+			Part file = allParts.get(fileKey);
 			if (file != null) {
 				objectPaths.forEach((String objectPath) -> {
 					MultipartVariableMapper.mapVariable(
@@ -224,13 +223,11 @@ public class GraphQlHttpHandler {
 		return ServerResponse.async(responseMono);
 	}
 
-	private static Map<String, MultipartFile> getMultipartMap(ServerRequest request) {
+	private static Map<String, Part> getMultipartMap(ServerRequest request) {
 		try {
-			AbstractMultipartHttpServletRequest abstractMultipartHttpServletRequest =
-				(AbstractMultipartHttpServletRequest) request.servletRequest();
-			return abstractMultipartHttpServletRequest.getFileMap();
+            return request.multipartData().toSingleValueMap();
 		}
-		catch (RuntimeException ex) {
+		catch (RuntimeException | IOException | ServletException ex) {
 			throw new ServerWebInputException("Error while reading request parts", null, ex);
 		}
 	}
@@ -257,12 +254,12 @@ public class GraphQlHttpHandler {
 
 class PartHttpInput implements HttpInputMessage {
 
-    private final MultipartFile multipartFile;
+    private final Part part;
 
     private final HttpHeaders headers;
 
-    public PartHttpInput(MultipartFile multipartFile, MediaType mediaType) {
-        this.multipartFile = multipartFile;
+    public PartHttpInput(Part part, MediaType mediaType) {
+        this.part = part;
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setContentType(mediaType);
         this.headers = httpHeaders;
@@ -270,7 +267,7 @@ class PartHttpInput implements HttpInputMessage {
 
     @Override
     public InputStream getBody() throws IOException {
-        return multipartFile.getInputStream();
+        return part.getInputStream();
     }
 
     @Override

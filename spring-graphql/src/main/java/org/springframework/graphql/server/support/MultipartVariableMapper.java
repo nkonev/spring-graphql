@@ -1,12 +1,11 @@
 package org.springframework.graphql.server.support;
 
-import org.springframework.web.multipart.MultipartFile;
-
+import javax.servlet.http.Part;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
-// As in DGS, this is borrowed from https://github.com/graphql-java-kickstart/graphql-java-servlet/blob/eb4dfdb5c0198adc1b4d4466c3b4ea4a77def5d1/graphql-java-servlet/src/main/java/graphql/kickstart/servlet/core/internal/VariableMapper.java
+// As in DGS, this is borrowed from graphql-java-kickstart
 public class MultipartVariableMapper {
 
     private static final Pattern PERIOD = Pattern.compile("\\.");
@@ -14,7 +13,7 @@ public class MultipartVariableMapper {
     private static final MultipartVariableMapper.Mapper<Map<String, Object>> MAP_MAPPER =
             new MultipartVariableMapper.Mapper<Map<String, Object>>() {
                 @Override
-                public Object set(Map<String, Object> location, String target, MultipartFile value) {
+                public Object set(Map<String, Object> location, String target, Part value) {
                     return location.put(target, value);
                 }
 
@@ -26,7 +25,7 @@ public class MultipartVariableMapper {
     private static final MultipartVariableMapper.Mapper<List<Object>> LIST_MAPPER =
             new MultipartVariableMapper.Mapper<List<Object>>() {
                 @Override
-                public Object set(List<Object> location, String target, MultipartFile value) {
+                public Object set(List<Object> location, String target, Part value) {
                     return location.set(Integer.parseInt(target), value);
                 }
 
@@ -37,7 +36,7 @@ public class MultipartVariableMapper {
             };
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public static void mapVariable(String objectPath, Map<String, Object> variables, MultipartFile part) {
+    public static void mapVariable(String objectPath, Map<String, Object> variables, Part part) {
         String[] segments = PERIOD.split(objectPath);
 
         if (segments.length < 2) {
@@ -79,7 +78,7 @@ public class MultipartVariableMapper {
 
     interface Mapper<T> {
 
-        Object set(T location, String target, MultipartFile value);
+        Object set(T location, String target, Part value);
 
         Object recurse(T location, String target);
     }
