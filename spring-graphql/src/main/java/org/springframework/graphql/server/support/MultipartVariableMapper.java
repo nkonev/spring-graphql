@@ -1,6 +1,5 @@
 package org.springframework.graphql.server.support;
 
-import javax.servlet.http.Part;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -16,7 +15,7 @@ public class MultipartVariableMapper {
     private static final MultipartVariableMapper.Mapper<Map<String, Object>> MAP_MAPPER =
             new MultipartVariableMapper.Mapper<Map<String, Object>>() {
                 @Override
-                public Object set(Map<String, Object> location, String target, Part value) {
+                public <P> Object set(Map<String, Object> location, String target, P value) {
                     return location.put(target, value);
                 }
 
@@ -28,7 +27,7 @@ public class MultipartVariableMapper {
     private static final MultipartVariableMapper.Mapper<List<Object>> LIST_MAPPER =
             new MultipartVariableMapper.Mapper<List<Object>>() {
                 @Override
-                public Object set(List<Object> location, String target, Part value) {
+                public <P> Object set(List<Object> location, String target, P value) {
                     return location.set(Integer.parseInt(target), value);
                 }
 
@@ -39,7 +38,7 @@ public class MultipartVariableMapper {
             };
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public static void mapVariable(String objectPath, Map<String, Object> variables, Part part) {
+    public static <P> void mapVariable(String objectPath, Map<String, Object> variables, P part) {
         String[] segments = PERIOD.split(objectPath);
 
         if (segments.length < 2) {
@@ -81,7 +80,7 @@ public class MultipartVariableMapper {
 
     interface Mapper<T> {
 
-        Object set(T location, String target, Part value);
+        <P> Object set(T location, String target, P value);
 
         Object recurse(T location, String target);
     }

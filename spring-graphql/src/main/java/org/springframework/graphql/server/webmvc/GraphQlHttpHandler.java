@@ -28,8 +28,10 @@ import java.util.HashMap;
 import javax.servlet.ServletException;
 import javax.servlet.http.Part;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.springframework.cglib.core.Converter;
 import org.springframework.graphql.server.support.MultipartVariableMapper;
 import reactor.core.publisher.Mono;
 
@@ -76,6 +78,8 @@ public class GraphQlHttpHandler {
 
 	private final WebGraphQlHandler graphQlHandler;
 
+    private final PartConverter partConverter;
+
 	/**
 	 * Create a new instance.
 	 * @param graphQlHandler common handler for GraphQL over HTTP requests
@@ -83,7 +87,15 @@ public class GraphQlHttpHandler {
 	public GraphQlHttpHandler(WebGraphQlHandler graphQlHandler) {
 		Assert.notNull(graphQlHandler, "WebGraphQlHandler is required");
 		this.graphQlHandler = graphQlHandler;
+        this.partConverter = new JacksonPartConverter(new ObjectMapper());
 	}
+
+    public GraphQlHttpHandler(WebGraphQlHandler graphQlHandler, PartConverter partConverter) {
+        Assert.notNull(graphQlHandler, "WebGraphQlHandler is required");
+        Assert.notNull(partConverter, "PartConverter is required");
+        this.graphQlHandler = graphQlHandler;
+        this.partConverter = partConverter;
+    }
 
 	/**
 	 * Handle GraphQL requests over HTTP.
@@ -123,23 +135,19 @@ public class GraphQlHttpHandler {
         Optional<Part> mapParam = Optional.ofNullable(allParts.get("map"));
 
         Map<String, Object> inputQuery = operation
-            .map(part -> this.<Map<String, Object>>readPartToMap(
-                    part,
-                    MAP_PARAMETERIZED_TYPE_REF.getType(),
-                    serverRequest.messageConverters()
-            ))
+            .map(part ->
+                partConverter.<Map<String, Object>>readPart(part, MAP_PARAMETERIZED_TYPE_REF.getType())
+            )
             .orElse(new HashMap<>());
 
 		final Map<String, Object> queryVariables = getFromMapOrEmpty(inputQuery, "variables");
 		final Map<String, Object> extensions = getFromMapOrEmpty(inputQuery, "extensions");
 
 		Map<String, List<String>> fileMapInput =
-                mapParam.map(part -> this.<Map<String, List<String>>>readPartToMap(
-                    part,
-                    LIST_PARAMETERIZED_TYPE_REF.getType(),
-                    serverRequest.messageConverters()
-                ))
-                .orElse(new HashMap<>());
+            mapParam.map(part ->
+                partConverter.<Map<String, List<String>>>readPart(part, LIST_PARAMETERIZED_TYPE_REF.getType())
+            )
+            .orElse(new HashMap<>());
 
 		fileMapInput.forEach((String fileKey, List<String> objectPaths) -> {
 			Part file = allParts.get(fileKey);
@@ -183,37 +191,6 @@ public class GraphQlHttpHandler {
 		return ServerResponse.async(responseMono);
 	}
 
-    private <T> T readPartToMap(
-            Part part,
-            Type bodyType,
-            List<org.springframework.http.converter.HttpMessageConverter<?>> messageConverters
-    ) {
-		// This code mainly from DefaultServerRequest.bodyInternal()
-        Class<?> bodyClass = Map.class;
-        MediaType contentType = MediaType.APPLICATION_JSON;
-        HttpInputMessage inputMessage = new PartHttpInput(part, contentType);
-        try {
-            for (HttpMessageConverter<?> messageConverter : messageConverters) {
-                if (messageConverter instanceof GenericHttpMessageConverter) {
-                    GenericHttpMessageConverter<T> genericMessageConverter =
-                            (GenericHttpMessageConverter<T>) messageConverter;
-                    if (genericMessageConverter.canRead(bodyType, bodyClass, contentType)) {
-                        return genericMessageConverter.read(bodyType, bodyClass, inputMessage);
-                    }
-                }
-                if (messageConverter.canRead(bodyClass, contentType)) {
-                    HttpMessageConverter<T> theConverter =
-                            (HttpMessageConverter<T>) messageConverter;
-                    Class<? extends T> clazz = (Class<? extends T>) bodyClass;
-                    return theConverter.read(clazz, inputMessage);
-                }
-            }
-        } catch (Exception e) {
-            throw new ServerWebInputException("Unable to read type " + bodyType, null, e);
-        }
-        throw new ServerWebInputException("Unable to find converter for type " + bodyType);
-    }
-
 	private Map<String, Object> getFromMapOrEmpty(Map<String, Object> input, String key) {
 		if (input.containsKey(key)) {
 			return (Map<String, Object>)input.get(key);
@@ -249,28 +226,4 @@ public class GraphQlHttpHandler {
 		return MediaType.APPLICATION_JSON;
 	}
 
-}
-
-class PartHttpInput implements HttpInputMessage {
-
-    private final Part part;
-
-    private final HttpHeaders headers;
-
-    public PartHttpInput(Part part, MediaType mediaType) {
-        this.part = part;
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setContentType(mediaType);
-        this.headers = httpHeaders;
-    }
-
-    @Override
-    public InputStream getBody() throws IOException {
-        return part.getInputStream();
-    }
-
-    @Override
-    public HttpHeaders getHeaders() {
-        return headers;
-    }
 }
