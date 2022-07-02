@@ -22,10 +22,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.springframework.core.ResolvableType;
+import org.springframework.core.codec.Decoder;
 import org.springframework.graphql.server.support.MultipartVariableMapper;
+import org.springframework.http.codec.json.Jackson2JsonDecoder;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.http.codec.multipart.Part;
 import reactor.core.publisher.Mono;
@@ -62,7 +64,7 @@ public class GraphQlHttpHandler {
 
 	private final WebGraphQlHandler graphQlHandler;
 
-    private final PartConverter partConverter;
+    private final Decoder<?> jsonDecoder;
 
 	/**
 	 * Create a new instance.
@@ -71,14 +73,14 @@ public class GraphQlHttpHandler {
 	public GraphQlHttpHandler(WebGraphQlHandler graphQlHandler) {
 		Assert.notNull(graphQlHandler, "WebGraphQlHandler is required");
 		this.graphQlHandler = graphQlHandler;
-        this.partConverter = new JacksonPartConverter(new ObjectMapper());
+        this.jsonDecoder = new Jackson2JsonDecoder();
 	}
 
-    public GraphQlHttpHandler(WebGraphQlHandler graphQlHandler, PartConverter partConverter) {
+    public GraphQlHttpHandler(WebGraphQlHandler graphQlHandler, Decoder<?> jsonDecoder) {
         Assert.notNull(graphQlHandler, "WebGraphQlHandler is required");
-        Assert.notNull(partConverter, "PartConverter is required");
+        Assert.notNull(jsonDecoder, "Decoder is required");
         this.graphQlHandler = graphQlHandler;
-        this.partConverter = partConverter;
+        this.jsonDecoder = jsonDecoder;
     }
 
 	/**
@@ -117,19 +119,16 @@ public class GraphQlHttpHandler {
 				Optional<Part> operation = Optional.ofNullable(allParts.get("operations"));
 				Optional<Part> mapParam = Optional.ofNullable(allParts.get("map"));
 
+                Decoder<Map<String, Object>> mapJsonDecoder = (Decoder<Map<String, Object>>) jsonDecoder;
+                Decoder<Map<String, List<String>>> listJsonDecoder = (Decoder<Map<String, List<String>>>) jsonDecoder;
+
                 Mono<Map<String, Object>> inputQueryMono = operation
-                    .map(part ->
-                        partConverter.<Map<String, Object>>readPart(part, MAP_PARAMETERIZED_TYPE_REF.getType())
-                    )
+                    .map(part -> mapJsonDecoder.decodeToMono(part.content(), ResolvableType.forType(MAP_PARAMETERIZED_TYPE_REF), MediaType.APPLICATION_JSON, null))
                     .orElse(Mono.just(new HashMap<>()));
 
-
-                Mono<Map<String, List<String>>> fileMapInputMono =
-                    mapParam.map(part ->
-                            partConverter.<Map<String, List<String>>>readPart(part, LIST_PARAMETERIZED_TYPE_REF.getType())
-                        )
-                        .orElse(Mono.just(new HashMap<>()));
-
+                Mono<Map<String, List<String>>> fileMapInputMono = mapParam
+                    .map(part -> listJsonDecoder.decodeToMono(part.content(), ResolvableType.forType(LIST_PARAMETERIZED_TYPE_REF), MediaType.APPLICATION_JSON, null))
+                    .orElse(Mono.just(new HashMap<>()));
 
                 return Mono.zip(inputQueryMono, fileMapInputMono).flatMap((Tuple2<Map<String, Object>, Map<String, List<String>>> objects) -> {
                     Map<String, Object> inputQuery = objects.getT1();

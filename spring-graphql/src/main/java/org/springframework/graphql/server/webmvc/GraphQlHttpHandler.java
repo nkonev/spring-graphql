@@ -24,7 +24,6 @@ import java.util.Optional;
 import java.util.HashMap;
 
 import javax.servlet.ServletException;
-import javax.servlet.http.Part;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.logging.Log;
@@ -191,15 +190,6 @@ public class GraphQlHttpHandler {
 			return (Map<String, Object>)input.get(key);
 		} else {
 			return new HashMap<>();
-		}
-	}
-
-	private static Map<String, Part> getMultipartMap(ServerRequest request) {
-		try {
-            return request.multipartData().toSingleValueMap();
-		}
-		catch (RuntimeException | IOException | ServletException ex) {
-			throw new ServerWebInputException("Error while reading request parts", null, ex);
 		}
 	}
 
