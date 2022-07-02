@@ -16,12 +16,24 @@
 
 package org.springframework.graphql.server.webflux;
 
+import java.lang.reflect.Type;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.springframework.context.i18n.LocaleContextHolder;
+import org.springframework.graphql.server.webmvc.PartHttpInput;
+import org.springframework.http.HttpInputMessage;
+import org.springframework.http.ReactiveHttpInputMessage;
+import org.springframework.http.codec.HttpMessageReader;
+import org.springframework.http.codec.multipart.Part;
+import org.springframework.http.converter.GenericHttpMessageConverter;
+import org.springframework.http.converter.HttpMessageConverter;
+import org.springframework.web.server.ServerWebInputException;
 import reactor.core.publisher.Mono;
 
 import org.springframework.core.ParameterizedTypeReference;
@@ -86,6 +98,94 @@ public class GraphQlHttpHandler {
 					builder.contentType(selectResponseMediaType(serverRequest));
 					return builder.bodyValue(response.toMap());
 				});
+	}
+
+	public Mono<ServerResponse> handleMultipartRequest(ServerRequest serverRequest) {
+		return serverRequest.multipartData()
+			.flatMap(multipartMultiMap -> {
+				Map<String, Part> allParts = multipartMultiMap.toSingleValueMap();
+
+				Optional<Part> operation = Optional.ofNullable(allParts.get("operations"));
+				Optional<Part> mapParam = Optional.ofNullable(allParts.get("map"));
+
+				Map<String, Object> inputQuery = operation
+					.map(part -> this.<Map<String, Object>>readPartToMap(
+						part,
+						MAP_PARAMETERIZED_TYPE_REF.getType(),
+						serverRequest.messageReaders()
+					))
+					.orElse(new HashMap<>());
+
+				final Map<String, Object> queryVariables = getFromMapOrEmpty(inputQuery, "variables");
+				final Map<String, Object> extensions = getFromMapOrEmpty(inputQuery, "extensions");
+
+				// TODO code here
+
+				String query = (String) inputQuery.get("query");
+				String opName = (String) inputQuery.get("operationName");
+
+				WebGraphQlRequest graphQlRequest = new WebGraphQlRequest(
+					serverRequest.uri(), serverRequest.headers().asHttpHeaders(),
+					query,
+					opName,
+					queryVariables,
+					extensions,
+					serverRequest.exchange().getRequest().getId(),
+					serverRequest.exchange().getLocaleContext().getLocale());
+
+				if (logger.isDebugEnabled()) {
+					logger.debug("Executing: " + graphQlRequest);
+				}
+				return this.graphQlHandler.handleRequest(graphQlRequest);
+			})
+			.flatMap(response -> {
+				if (logger.isDebugEnabled()) {
+					logger.debug("Execution complete");
+				}
+				ServerResponse.BodyBuilder builder = ServerResponse.ok();
+				builder.headers(headers -> headers.putAll(response.getResponseHeaders()));
+				builder.contentType(selectResponseMediaType(serverRequest));
+				return builder.bodyValue(response.toMap());
+			});
+	}
+
+	private <T> T readPartToMap(
+		Part part,
+		Type bodyType,
+		List<HttpMessageReader<?>> messageConverters
+	) {
+		// this code from DefaultServerRequest.bodyToMono()
+		Class<?> bodyClass = Map.class;
+		MediaType contentType = MediaType.APPLICATION_JSON;
+		ReactiveHttpInputMessage inputMessage = new ReactiveHttpInputMessage(part, contentType);
+		try {
+			for (HttpMessageReader<?> messageConverter : messageConverters) {
+				if (messageConverter instanceof GenericHttpMessageConverter) {
+					GenericHttpMessageConverter<T> genericMessageConverter =
+						(GenericHttpMessageConverter<T>) messageConverter;
+					if (genericMessageConverter.canRead(bodyType, bodyClass, contentType)) {
+						return genericMessageConverter.read(bodyType, bodyClass, inputMessage);
+					}
+				}
+				if (messageConverter.canRead(bodyClass, contentType)) {
+					HttpMessageConverter<T> theConverter =
+						(HttpMessageConverter<T>) messageConverter;
+					Class<? extends T> clazz = (Class<? extends T>) bodyClass;
+					return theConverter.read(clazz, inputMessage);
+				}
+			}
+		} catch (Exception e) {
+			throw new ServerWebInputException("Unable to read type " + bodyType, null, e);
+		}
+		throw new ServerWebInputException("Unable to find converter for type " + bodyType);
+	}
+
+	private Map<String, Object> getFromMapOrEmpty(Map<String, Object> input, String key) {
+		if (input.containsKey(key)) {
+			return (Map<String, Object>)input.get(key);
+		} else {
+			return new HashMap<>();
+		}
 	}
 
 	private static MediaType selectResponseMediaType(ServerRequest serverRequest) {

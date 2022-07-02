@@ -188,11 +188,9 @@ public class GraphQlHttpHandler {
             Type bodyType,
             List<org.springframework.http.converter.HttpMessageConverter<?>> messageConverters
     ) {
+		// This code mainly from DefaultServerRequest.bodyInternal()
         Class<?> bodyClass = Map.class;
-        MediaType contentType =
-                Optional.ofNullable(part.getContentType())
-                        .map(MediaType::parseMediaType)
-                        .orElse(MediaType.APPLICATION_JSON);
+        MediaType contentType = MediaType.APPLICATION_JSON;
         HttpInputMessage inputMessage = new PartHttpInput(part, contentType);
         try {
             for (HttpMessageConverter<?> messageConverter : messageConverters) {
