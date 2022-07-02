@@ -5,7 +5,7 @@ import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
- * Maps {@link javax.servlet.http.Part} to GraphQL variables.
+ * Maps http request's file to GraphQL variables.
  * Borrowed from graphql-java-kickstart.
  */
 public class MultipartVariableMapper {
@@ -38,7 +38,7 @@ public class MultipartVariableMapper {
             };
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public static <P> void mapVariable(String objectPath, Map<String, Object> variables, P part) {
+    public static <P> void mapVariable(String objectPath, Map<String, Object> variables, P file) {
         String[] segments = PERIOD.split(objectPath);
 
         if (segments.length < 2) {
@@ -53,7 +53,7 @@ public class MultipartVariableMapper {
             MultipartVariableMapper.Mapper mapper = determineMapper(currentLocation, objectPath, segmentName);
 
             if (i == segments.length - 1) {
-                if (null != mapper.set(currentLocation, segmentName, part)) {
+                if (null != mapper.set(currentLocation, segmentName, file)) {
                     throw new RuntimeException("expected null value when mapping " + objectPath);
                 }
             } else {

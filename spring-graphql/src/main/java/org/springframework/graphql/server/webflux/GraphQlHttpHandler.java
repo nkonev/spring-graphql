@@ -123,52 +123,57 @@ public class GraphQlHttpHandler {
                 Decoder<Map<String, List<String>>> listJsonDecoder = (Decoder<Map<String, List<String>>>) jsonDecoder;
 
                 Mono<Map<String, Object>> inputQueryMono = operation
-                    .map(part -> mapJsonDecoder.decodeToMono(part.content(), ResolvableType.forType(MAP_PARAMETERIZED_TYPE_REF), MediaType.APPLICATION_JSON, null))
-                    .orElse(Mono.just(new HashMap<>()));
+                    .map(part -> mapJsonDecoder.decodeToMono(
+                            part.content(), ResolvableType.forType(MAP_PARAMETERIZED_TYPE_REF),
+                            MediaType.APPLICATION_JSON, null
+                    )).orElse(Mono.just(new HashMap<>()));
 
                 Mono<Map<String, List<String>>> fileMapInputMono = mapParam
-                    .map(part -> listJsonDecoder.decodeToMono(part.content(), ResolvableType.forType(LIST_PARAMETERIZED_TYPE_REF), MediaType.APPLICATION_JSON, null))
-                    .orElse(Mono.just(new HashMap<>()));
+                    .map(part -> listJsonDecoder.decodeToMono(part.content(),
+                            ResolvableType.forType(LIST_PARAMETERIZED_TYPE_REF),
+                            MediaType.APPLICATION_JSON, null
+                    )).orElse(Mono.just(new HashMap<>()));
 
-                return Mono.zip(inputQueryMono, fileMapInputMono).flatMap((Tuple2<Map<String, Object>, Map<String, List<String>>> objects) -> {
-                    Map<String, Object> inputQuery = objects.getT1();
-                    Map<String, List<String>> fileMapInput = objects.getT2();
+                return Mono.zip(inputQueryMono, fileMapInputMono)
+                    .flatMap((Tuple2<Map<String, Object>, Map<String, List<String>>> objects) -> {
+                        Map<String, Object> inputQuery = objects.getT1();
+                        Map<String, List<String>> fileMapInput = objects.getT2();
 
-                    final Map<String, Object> queryVariables = getFromMapOrEmpty(inputQuery, "variables");
-                    final Map<String, Object> extensions = getFromMapOrEmpty(inputQuery, "extensions");
+                        final Map<String, Object> queryVariables = getFromMapOrEmpty(inputQuery, "variables");
+                        final Map<String, Object> extensions = getFromMapOrEmpty(inputQuery, "extensions");
 
-                    fileMapInput.forEach((String fileKey, List<String> objectPaths) -> {
-                        Part part = allParts.get(fileKey);
-                        if (part != null) {
-                            Assert.isInstanceOf(FilePart.class, part, "Part should be of type FilePart");
-                            FilePart file = (FilePart) part;
-                            objectPaths.forEach((String objectPath) -> {
-                                MultipartVariableMapper.mapVariable(
-                                        objectPath,
-                                        queryVariables,
-                                        file
-                                );
-                            });
+                        fileMapInput.forEach((String fileKey, List<String> objectPaths) -> {
+                            Part part = allParts.get(fileKey);
+                            if (part != null) {
+                                Assert.isInstanceOf(FilePart.class, part, "Part should be of type FilePart");
+                                FilePart file = (FilePart) part;
+                                objectPaths.forEach((String objectPath) -> {
+                                    MultipartVariableMapper.mapVariable(
+                                            objectPath,
+                                            queryVariables,
+                                            file
+                                    );
+                                });
+                            }
+                        });
+
+                        String query = (String) inputQuery.get("query");
+                        String opName = (String) inputQuery.get("operationName");
+
+                        WebGraphQlRequest graphQlRequest = new WebGraphQlRequest(
+                                serverRequest.uri(), serverRequest.headers().asHttpHeaders(),
+                                query,
+                                opName,
+                                queryVariables,
+                                extensions,
+                                serverRequest.exchange().getRequest().getId(),
+                                serverRequest.exchange().getLocaleContext().getLocale());
+
+                        if (logger.isDebugEnabled()) {
+                            logger.debug("Executing: " + graphQlRequest);
                         }
+                        return this.graphQlHandler.handleRequest(graphQlRequest);
                     });
-
-                    String query = (String) inputQuery.get("query");
-                    String opName = (String) inputQuery.get("operationName");
-
-                    WebGraphQlRequest graphQlRequest = new WebGraphQlRequest(
-                            serverRequest.uri(), serverRequest.headers().asHttpHeaders(),
-                            query,
-                            opName,
-                            queryVariables,
-                            extensions,
-                            serverRequest.exchange().getRequest().getId(),
-                            serverRequest.exchange().getLocaleContext().getLocale());
-
-                    if (logger.isDebugEnabled()) {
-                        logger.debug("Executing: " + graphQlRequest);
-                    }
-                    return this.graphQlHandler.handleRequest(graphQlRequest);
-                });
             })
 			.flatMap(response -> {
 				if (logger.isDebugEnabled()) {
