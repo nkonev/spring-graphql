@@ -4,24 +4,22 @@ import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.core.GenericTypeResolver;
 
-import javax.servlet.http.Part;
 import java.io.IOException;
-import java.io.InputStream;
 import java.lang.reflect.Type;
 
-public class JacksonPartConverter implements PartConverter {
+public class JacksonParamConverter implements ParamConverter {
 
     private final ObjectMapper objectMapper;
 
-    public JacksonPartConverter(ObjectMapper objectMapper) {
+    public JacksonParamConverter(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
     }
 
     @Override
-    public <T> T readPart(Part part, Type targetType) {
-        try (InputStream inputStream = part.getInputStream()) {
+    public <T> T readPart(String param, Type targetType) {
+        try {
             JavaType javaType = getJavaType(targetType);
-            return objectMapper.readValue(inputStream, javaType);
+            return objectMapper.readValue(param, javaType);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

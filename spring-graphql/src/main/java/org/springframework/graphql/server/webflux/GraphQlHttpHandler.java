@@ -25,21 +25,9 @@ import java.util.Optional;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.springframework.core.codec.DecodingException;
-import org.springframework.core.io.buffer.DataBuffer;
-import org.springframework.graphql.server.WebGraphQlResponse;
 import org.springframework.graphql.server.support.MultipartVariableMapper;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.ReactiveHttpInputMessage;
-import org.springframework.http.codec.HttpMessageReader;
+import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.http.codec.multipart.Part;
-import org.springframework.http.converter.GenericHttpMessageConverter;
-import org.springframework.http.converter.HttpMessageConverter;
-import org.springframework.web.reactive.function.BodyExtractor;
-import org.springframework.web.reactive.function.BodyExtractors;
-import org.springframework.web.reactive.function.UnsupportedMediaTypeException;
-import org.springframework.web.server.ServerWebInputException;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import org.springframework.core.ParameterizedTypeReference;
@@ -56,6 +44,7 @@ import reactor.util.function.Tuple2;
  *
  * @author Rossen Stoyanchev
  * @author Brian Clozel
+ * @author Nikita Konev
  * @since 1.0.0
  */
 public class GraphQlHttpHandler {
@@ -150,7 +139,7 @@ public class GraphQlHttpHandler {
                     final Map<String, Object> extensions = getFromMapOrEmpty(inputQuery, "extensions");
 
                     fileMapInput.forEach((String fileKey, List<String> objectPaths) -> {
-                        Part file = allParts.get(fileKey);
+                        FilePart file = (FilePart) allParts.get(fileKey);
                         if (file != null) {
                             objectPaths.forEach((String objectPath) -> {
                                 MultipartVariableMapper.mapVariable(

@@ -36,7 +36,7 @@ public class JacksonPartConverter implements PartConverter {
                 .flatMap(dataBuffer -> Mono.justOrEmpty(decode(dataBuffer, javaType)));
     }
 
-    <T> T decode(DataBuffer dataBuffer, JavaType javaType) throws DecodingException {
+    private <T> T decode(DataBuffer dataBuffer, JavaType javaType) throws DecodingException {
         try {
             return objectMapper.readValue(dataBuffer.asInputStream(), javaType);
         } catch (IOException e) {

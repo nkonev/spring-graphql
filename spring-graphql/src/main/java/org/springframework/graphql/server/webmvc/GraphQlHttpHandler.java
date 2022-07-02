@@ -17,8 +17,6 @@
 package org.springframework.graphql.server.webmvc;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -31,19 +29,16 @@ import javax.servlet.http.Part;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.springframework.cglib.core.Converter;
 import org.springframework.graphql.server.support.MultipartVariableMapper;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.support.AbstractMultipartHttpServletRequest;
 import reactor.core.publisher.Mono;
 
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.graphql.server.WebGraphQlHandler;
 import org.springframework.graphql.server.WebGraphQlRequest;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpInputMessage;
 import org.springframework.http.MediaType;
-import org.springframework.http.converter.GenericHttpMessageConverter;
-import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.util.AlternativeJdkIdGenerator;
 import org.springframework.util.Assert;
 import org.springframework.util.IdGenerator;
@@ -78,7 +73,7 @@ public class GraphQlHttpHandler {
 
 	private final WebGraphQlHandler graphQlHandler;
 
-    private final PartConverter partConverter;
+    private final ParamConverter paramConverter;
 
 	/**
 	 * Create a new instance.
@@ -87,14 +82,14 @@ public class GraphQlHttpHandler {
 	public GraphQlHttpHandler(WebGraphQlHandler graphQlHandler) {
 		Assert.notNull(graphQlHandler, "WebGraphQlHandler is required");
 		this.graphQlHandler = graphQlHandler;
-        this.partConverter = new JacksonPartConverter(new ObjectMapper());
+        this.paramConverter = new JacksonParamConverter(new ObjectMapper());
 	}
 
-    public GraphQlHttpHandler(WebGraphQlHandler graphQlHandler, PartConverter partConverter) {
+    public GraphQlHttpHandler(WebGraphQlHandler graphQlHandler, ParamConverter paramConverter) {
         Assert.notNull(graphQlHandler, "WebGraphQlHandler is required");
-        Assert.notNull(partConverter, "PartConverter is required");
+        Assert.notNull(paramConverter, "PartConverter is required");
         this.graphQlHandler = graphQlHandler;
-        this.partConverter = partConverter;
+        this.paramConverter = paramConverter;
     }
 
 	/**
@@ -129,28 +124,28 @@ public class GraphQlHttpHandler {
 	}
 
 	public ServerResponse handleMultipartRequest(ServerRequest serverRequest) throws ServletException {
-        Map<String, Part> allParts = getMultipartMap(serverRequest);
-
-        Optional<Part> operation = Optional.ofNullable(allParts.get("operations"));
-        Optional<Part> mapParam = Optional.ofNullable(allParts.get("map"));
+        Optional<String> operation = serverRequest.param("operations");
+        Optional<String> mapParam = serverRequest.param("map");
 
         Map<String, Object> inputQuery = operation
             .map(part ->
-                partConverter.<Map<String, Object>>readPart(part, MAP_PARAMETERIZED_TYPE_REF.getType())
+                paramConverter.<Map<String, Object>>readPart(part, MAP_PARAMETERIZED_TYPE_REF.getType())
             )
             .orElse(new HashMap<>());
 
 		final Map<String, Object> queryVariables = getFromMapOrEmpty(inputQuery, "variables");
 		final Map<String, Object> extensions = getFromMapOrEmpty(inputQuery, "extensions");
 
+        Map<String, MultipartFile> fileParams = readMultipartFiles(serverRequest);
+
 		Map<String, List<String>> fileMapInput =
             mapParam.map(part ->
-                partConverter.<Map<String, List<String>>>readPart(part, LIST_PARAMETERIZED_TYPE_REF.getType())
+                paramConverter.<Map<String, List<String>>>readPart(part, LIST_PARAMETERIZED_TYPE_REF.getType())
             )
             .orElse(new HashMap<>());
 
 		fileMapInput.forEach((String fileKey, List<String> objectPaths) -> {
-			Part file = allParts.get(fileKey);
+			MultipartFile file = fileParams.get(fileKey);
 			if (file != null) {
 				objectPaths.forEach((String objectPath) -> {
 					MultipartVariableMapper.mapVariable(
@@ -207,6 +202,16 @@ public class GraphQlHttpHandler {
 			throw new ServerWebInputException("Error while reading request parts", null, ex);
 		}
 	}
+
+    private static Map<String, MultipartFile> readMultipartFiles(ServerRequest request) {
+        try {
+            AbstractMultipartHttpServletRequest abstractMultipartHttpServletRequest = (AbstractMultipartHttpServletRequest) request.servletRequest();
+            return abstractMultipartHttpServletRequest.getFileMap();
+        }
+        catch (RuntimeException ex) {
+            throw new ServerWebInputException("Error while reading request parts", null, ex);
+        }
+    }
 
 	private static Map<String, Object> readBody(ServerRequest request) throws ServletException {
 		try {
