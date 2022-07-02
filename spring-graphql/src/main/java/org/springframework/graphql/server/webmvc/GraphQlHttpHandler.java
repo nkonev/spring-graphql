@@ -194,13 +194,11 @@ public class GraphQlHttpHandler {
 	}
 
     private static Map<String, MultipartFile> readMultipartFiles(ServerRequest request) {
-        try {
-            AbstractMultipartHttpServletRequest abstractMultipartHttpServletRequest = (AbstractMultipartHttpServletRequest) request.servletRequest();
-            return abstractMultipartHttpServletRequest.getFileMap();
-        }
-        catch (RuntimeException ex) {
-            throw new ServerWebInputException("Error while reading request parts", null, ex);
-        }
+        Assert.isInstanceOf(AbstractMultipartHttpServletRequest.class, request,
+            "Request should be of type AbstractMultipartHttpServletRequest");
+        AbstractMultipartHttpServletRequest abstractMultipartHttpServletRequest =
+            (AbstractMultipartHttpServletRequest) request.servletRequest();
+        return abstractMultipartHttpServletRequest.getFileMap();
     }
 
 	private static Map<String, Object> readBody(ServerRequest request) throws ServletException {

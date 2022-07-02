@@ -138,8 +138,10 @@ public class GraphQlHttpHandler {
                     final Map<String, Object> extensions = getFromMapOrEmpty(inputQuery, "extensions");
 
                     fileMapInput.forEach((String fileKey, List<String> objectPaths) -> {
-                        FilePart file = (FilePart) allParts.get(fileKey);
-                        if (file != null) {
+                        Part part = allParts.get(fileKey);
+                        if (part != null) {
+                            Assert.isInstanceOf(FilePart.class, part, "Part should be of type FilePart");
+                            FilePart file = (FilePart) part;
                             objectPaths.forEach((String objectPath) -> {
                                 MultipartVariableMapper.mapVariable(
                                         objectPath,
