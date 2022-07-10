@@ -75,6 +75,17 @@ final class HttpGraphQlTransport implements GraphQlTransport {
 				.map(ResponseMapGraphQlResponse::new);
 	}
 
+    @Override
+    public Mono<GraphQlResponse> executeUpload(GraphQlRequest request) {
+        return this.webClient.post()
+                .contentType(this.contentType)
+                .accept(MediaType.APPLICATION_JSON, MediaType.APPLICATION_GRAPHQL)
+                .bodyValue(request.toMap())
+                .retrieve()
+                .bodyToMono(MAP_TYPE)
+                .map(ResponseMapGraphQlResponse::new);
+    }
+
 	@Override
 	public Flux<GraphQlResponse> executeSubscription(GraphQlRequest request) {
 		throw new UnsupportedOperationException("Subscriptions not supported over HTTP");

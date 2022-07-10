@@ -19,6 +19,9 @@ package org.springframework.graphql.test.tester;
 import java.util.Collections;
 import java.util.Map;
 
+import org.springframework.http.client.MultipartBodyBuilder;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.reactive.function.BodyInserters;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -69,6 +72,32 @@ final class WebTestClientTransport implements GraphQlTransport {
 		GraphQlResponse response = GraphQlTransport.createResponse(responseMap);
 		return Mono.just(response);
 	}
+
+    @Override
+    public Mono<GraphQlResponse> executeUpload(GraphQlRequest request) {
+
+        MultipartFile multipartFile = null;
+
+        MultipartBodyBuilder builder = new MultipartBodyBuilder();
+        builder.part("file", multipartFile.getResource());
+        Map<String, Object> operations = request.toMap();
+        builder.part("operations", operations);
+
+        Map<String, Object> responseMap = this.webTestClient.post()
+                .contentType(MediaType.MULTIPART_FORM_DATA)
+                .accept(MediaType.APPLICATION_JSON)
+                .body(BodyInserters.fromMultipartData(builder.build()))
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_JSON)
+                .expectBody(MAP_TYPE)
+                .returnResult()
+                .getResponseBody();
+
+        responseMap = (responseMap != null ? responseMap : Collections.emptyMap());
+        GraphQlResponse response = GraphQlTransport.createResponse(responseMap);
+        return Mono.just(response);
+    }
 
 	@Override
 	public Flux<GraphQlResponse> executeSubscription(GraphQlRequest request) {
