@@ -24,6 +24,7 @@ import java.util.Optional;
 import java.util.HashMap;
 
 import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.logging.Log;
@@ -194,10 +195,11 @@ public class GraphQlHttpHandler {
 	}
 
     private static Map<String, MultipartFile> readMultipartFiles(ServerRequest request) {
-        Assert.isInstanceOf(AbstractMultipartHttpServletRequest.class, request,
-            "Request should be of type AbstractMultipartHttpServletRequest");
+        HttpServletRequest httpServletRequest = request.servletRequest();
+        Assert.isInstanceOf(AbstractMultipartHttpServletRequest.class, httpServletRequest,
+                "Request should be of type AbstractMultipartHttpServletRequest");
         AbstractMultipartHttpServletRequest abstractMultipartHttpServletRequest =
-            (AbstractMultipartHttpServletRequest) request.servletRequest();
+            (AbstractMultipartHttpServletRequest) httpServletRequest;
         return abstractMultipartHttpServletRequest.getFileMap();
     }
 
