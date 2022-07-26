@@ -187,24 +187,24 @@ public class GraphQlHttpHandlerTests {
 
         MockServerWebExchange exchange = MockServerWebExchange.from(httpRequest);
 
-        Map<String, Object> map = new HashMap<>();
-        map.put("query", body);
-        map.put("variables", variables);
         LinkedMultiValueMap<String, Object> parts = new LinkedMultiValueMap<>();
 
-        addJsonEncodedPart(parts, "operations", map);
+        Map<String, Object> operations = new HashMap<>();
+        operations.put("query", body);
+        operations.put("variables", variables);
+        addJsonEncodedPart(parts, "operations", operations);
 
         int number = 0;
-        Map<String, List<String>> mappings = new HashMap<>();
+        Map<String, List<String>> partMappings = new HashMap<>();
         for (Map.Entry<String , Object> entry : files.entrySet()) {
             number++;
             Object resource = entry.getValue();
             String variableName = entry.getKey();
             String partName = "uploadPart" + number;
             addFilePart(parts, partName, (Resource) resource);
-            mappings.put(partName, Collections.singletonList("variables." + variableName));
+            partMappings.put(partName, Collections.singletonList("variables." + variableName));
         }
-        addJsonEncodedPart(parts, "map", mappings);
+        addJsonEncodedPart(parts, "map", partMappings);
 
         MockServerRequest serverRequest = MockServerRequest.builder()
                 .exchange(exchange)

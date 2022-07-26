@@ -17,16 +17,16 @@ public final class MultipartBodyCreator {
         builder.part("operations", multipartRequest.toMap());
 
         int number = 0;
-        Map<String, List<String>> mappings = new HashMap<>();
+        Map<String, List<String>> partMappings = new HashMap<>();
         for (Map.Entry<String , Object> entry : multipartRequest.getFiles().entrySet()) {
             number++;
             Object resource = entry.getValue();
             String variableName = entry.getKey();
             String partName = "uploadPart" + number;
             builder.part(partName, resource);
-            mappings.put(partName, Collections.singletonList("variables." + variableName));
+            partMappings.put(partName, Collections.singletonList("variables." + variableName));
         }
-        builder.part("map", mappings);
+        builder.part("map", partMappings);
         return builder.build();
     }
 
