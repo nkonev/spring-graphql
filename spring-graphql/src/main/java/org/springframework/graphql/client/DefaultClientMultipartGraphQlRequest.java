@@ -33,17 +33,17 @@ final class DefaultClientMultipartGraphQlRequest extends DefaultGraphQlRequest i
 
 	private final Map<String, Object> attributes = new ConcurrentHashMap<>();
 
-    private final Map<String, Object> uploads = new ConcurrentHashMap<>();
+    private final Map<String, Object> files = new ConcurrentHashMap<>();
 
     DefaultClientMultipartGraphQlRequest(
 			String document, @Nullable String operationName,
 			Map<String, Object> variables, Map<String, Object> extensions,
 			Map<String, Object> attributes,
-            Map<String, Object> uploads) {
+            Map<String, Object> files) {
 
 		super(document, operationName, variables, extensions);
 		this.attributes.putAll(attributes);
-        this.uploads.putAll(uploads);
+        this.files.putAll(files);
 	}
 
 
@@ -52,8 +52,8 @@ final class DefaultClientMultipartGraphQlRequest extends DefaultGraphQlRequest i
 		return this.attributes;
 	}
 
-    public Map<String, Object> getUploads() {
-        return this.uploads;
+    public Map<String, Object> getFiles() {
+        return this.files;
     }
 
 }

@@ -178,7 +178,7 @@ public abstract class AbstractGraphQlTesterBuilder<B extends AbstractGraphQlTest
 			}
 
             @Override
-            public Mono<GraphQlResponse> executeUpload(GraphQlRequest request) {
+            public Mono<GraphQlResponse> executeFileUpload(GraphQlRequest request) {
                 throw new UnsupportedOperationException("File upload is not supported");
             }
         };

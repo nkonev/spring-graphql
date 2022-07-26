@@ -88,7 +88,7 @@ final class RSocketGraphQlTransport implements GraphQlTransport {
 	}
 
     @Override
-    public Mono<GraphQlResponse> executeUpload(GraphQlRequest request) {
+    public Mono<GraphQlResponse> executeFileUpload(GraphQlRequest request) {
         throw new UnsupportedOperationException("File upload is not supported");
     }
 

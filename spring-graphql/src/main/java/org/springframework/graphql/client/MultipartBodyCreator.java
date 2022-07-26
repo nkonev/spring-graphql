@@ -18,7 +18,7 @@ public final class MultipartBodyCreator {
 
         int number = 0;
         Map<String, List<String>> mappings = new HashMap<>();
-        for (Map.Entry<String , Object> entry : multipartRequest.getUploads().entrySet()) {
+        for (Map.Entry<String , Object> entry : multipartRequest.getFiles().entrySet()) {
             number++;
             Object resource = entry.getValue();
             String variableName = entry.getKey();

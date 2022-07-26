@@ -84,7 +84,7 @@ final class HttpGraphQlTransport implements GraphQlTransport {
 	}
 
     @Override
-    public Mono<GraphQlResponse> executeUpload(GraphQlRequest request) {
+    public Mono<GraphQlResponse> executeFileUpload(GraphQlRequest request) {
         return this.webClient.post()
                 .contentType(MediaType.MULTIPART_FORM_DATA)
                 .accept(MediaType.APPLICATION_JSON, MediaType.APPLICATION_GRAPHQL)

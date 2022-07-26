@@ -76,7 +76,7 @@ final class WebTestClientTransport implements GraphQlTransport {
 	}
 
     @Override
-    public Mono<GraphQlResponse> executeUpload(GraphQlRequest request) {
+    public Mono<GraphQlResponse> executeFileUpload(GraphQlRequest request) {
 
         Map<String, Object> responseMap = this.webTestClient.post()
                 .contentType(MediaType.MULTIPART_FORM_DATA)

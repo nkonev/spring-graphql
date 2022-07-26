@@ -87,7 +87,7 @@ public class GraphQlClientTestSupport {
 		}
 
         @Override
-        public Mono<GraphQlResponse> executeUpload(GraphQlRequest request) {
+        public Mono<GraphQlResponse> executeFileUpload(GraphQlRequest request) {
             throw new UnsupportedOperationException("File upload is not supported");
         }
 

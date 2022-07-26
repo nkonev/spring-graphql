@@ -151,9 +151,9 @@ public interface GraphQlClient {
 		 */
 		RequestSpec variables(Map<String, Object> variables);
 
-        RequestSpec upload(String name, Object value);
+        RequestSpec file(String name, Object value);
 
-        RequestSpec uploads(Map<String, Object> variables);
+        RequestSpec files(Map<String, Object> variables);
 
 		/**
 		 * Add a value for a protocol extension.
