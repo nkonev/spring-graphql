@@ -15,14 +15,20 @@
  */
 package org.springframework.graphql.server.webflux;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 
 import com.jayway.jsonpath.DocumentContext;
 import com.jayway.jsonpath.JsonPath;
+import graphql.schema.GraphQLScalarType;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.graphql.coercing.webflux.UploadCoercing;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.client.MultipartBodyBuilder;
+import org.springframework.http.codec.multipart.Part;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.reactive.function.BodyInserters;
 import reactor.core.publisher.Mono;
 
 import org.springframework.graphql.GraphQlSetup;
@@ -60,6 +66,36 @@ public class GraphQlHttpHandlerTests {
 
 		assertThat(httpResponse.getHeaders().getContentType()).isEqualTo(MediaType.APPLICATION_JSON);
 	}
+
+    @Test
+    void shouldPassFile() {
+        GraphQlHttpHandler handler = GraphQlSetup.schemaContent(
+                        "type Query { ping: String } \n" +
+                        "scalar Upload\n" +
+                        "type FileUploadResult {\n" +
+                        "  id: String!\n" +
+                        "}\n" +
+                        "type Mutation {\n" +
+                        "    fileUpload(file: Upload!): FileUploadResult!\n" +
+                        "}")
+                .queryFetcher("fileUpload", (env) -> "{\"id\": \"uuid-1\"}")
+                .runtimeWiring(builder -> builder.scalar(GraphQLScalarType.newScalar()
+                        .name("Upload")
+                        .coercing(new UploadCoercing())
+                        .build()))
+                .toHttpHandlerWebFlux();
+
+        MockServerHttpRequest httpRequest = MockServerHttpRequest.post("/")
+                .contentType(MediaType.APPLICATION_JSON).accept(MediaType.ALL).build();
+
+        MockServerHttpResponse httpResponse = handleMultipartRequest(
+                httpRequest, handler, Collections.singletonMap("query", "mutation FileUpload($file: Upload!) {fileUpload(file: $file){id}}"),
+                Collections.singletonMap("variables", Collections.singletonMap("file", null)),
+                Collections.singletonMap("file", new ClassPathResource("/foo.txt"))
+        );
+
+        assertThat(httpResponse.getBodyAsString().block())
+                .isEqualTo("{\"data\":{\"fileUpload\":{\"id\":\"uuid-1\"}}}");    }
 
 	@Test
 	void shouldProduceApplicationGraphQl() {
@@ -134,6 +170,45 @@ public class GraphQlHttpHandlerTests {
 
 		return exchange.getResponse();
 	}
+
+    private MockServerHttpResponse handleMultipartRequest(
+            MockServerHttpRequest httpRequest, GraphQlHttpHandler handler, Map<String, String> body,
+            Map<String, Object> variables, Map<String, Object> files) {
+
+        MockServerWebExchange exchange = MockServerWebExchange.from(httpRequest);
+
+        Map<String, Object> map = new LinkedHashMap<>(3);
+        map.put("query", body);
+        map.put("variables", variables);
+        LinkedMultiValueMap<String, Object> builder = new LinkedMultiValueMap<>();
+        builder.add("operations", map);
+
+        int number = 0;
+        Map<String, List<String>> mappings = new HashMap<>();
+        for (Map.Entry<String , Object> entry : files.entrySet()) {
+            number++;
+            Object resource = entry.getValue();
+            String variableName = entry.getKey();
+            String partName = "uploadPart" + number;
+            builder.add(partName, resource);
+            mappings.put(partName, Collections.singletonList("variables." + variableName));
+        }
+        builder.add("map", mappings);
+//        MultiValueMap<String, HttpEntity<?>> multipartRequest = builder.build();
+
+        MockServerRequest serverRequest = MockServerRequest.builder()
+                .exchange(exchange)
+                .uri(((ServerWebExchange) exchange).getRequest().getURI())
+                .method(((ServerWebExchange) exchange).getRequest().getMethod())
+                .headers(((ServerWebExchange) exchange).getRequest().getHeaders())
+                .body(BodyInserters.fromMultipartData(builder));
+
+        handler.handleMultipartRequest(serverRequest)
+                .flatMap(response -> response.writeTo(exchange, new DefaultContext()))
+                .block();
+
+        return exchange.getResponse();
+    }
 
 
 	private static class DefaultContext implements ServerResponse.Context {
