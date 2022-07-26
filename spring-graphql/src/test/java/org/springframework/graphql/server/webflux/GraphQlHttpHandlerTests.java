@@ -78,12 +78,12 @@ public class GraphQlHttpHandlerTests {
                         "type Query { ping: String } \n" +
                         "scalar Upload\n" +
                         "type FileUploadResult {\n" +
-                        "  id: String!\n" +
+                        "  responseFileName: String!\n" +
                         "}\n" +
                         "type Mutation {\n" +
-                        "    fileUpload(file: Upload!): FileUploadResult!\n" +
+                        "    fileUpload(fileInput: Upload!): FileUploadResult!\n" +
                         "}")
-                .mutationFetcher("fileUpload", (env) -> Collections.singletonMap("id", "uuid-1"))
+                .mutationFetcher("fileUpload", (env) -> Collections.singletonMap("responseFileName", ((FilePart) env.getVariables().get("fileInput")).filename()))
                 .runtimeWiring(builder -> builder.scalar(GraphQLScalarType.newScalar()
                         .name("Upload")
                         .coercing(new UploadCoercing())
@@ -95,13 +95,13 @@ public class GraphQlHttpHandlerTests {
                 .build();
 
         MockServerHttpResponse httpResponse = handleMultipartRequest(
-                httpRequest, handler, "mutation FileUpload($file: Upload!) {fileUpload(file: $file){id}}",
-                Collections.singletonMap("variables", Collections.singletonMap("file", null)),
-                Collections.singletonMap("file", new ClassPathResource("/foo.txt"))
+                httpRequest, handler, "mutation FileUpload($fileInput: Upload!) {fileUpload(fileInput: $fileInput){responseFileName}}",
+                Collections.singletonMap("variables", Collections.singletonMap("fileInput", null)),
+                Collections.singletonMap("fileInput", new ClassPathResource("/foo.txt"))
         );
 
         assertThat(httpResponse.getBodyAsString().block())
-                .isEqualTo("{\"data\":{\"fileUpload\":{\"id\":\"uuid-1\"}}}");    }
+                .isEqualTo("{\"data\":{\"fileUpload\":{\"responseFileName\":\"foo.txt\"}}}");    }
 
 	@Test
 	void shouldProduceApplicationGraphQl() {
