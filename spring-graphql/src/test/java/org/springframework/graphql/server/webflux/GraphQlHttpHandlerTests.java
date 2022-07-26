@@ -211,8 +211,7 @@ public class GraphQlHttpHandlerTests {
                 .uri(((ServerWebExchange) exchange).getRequest().getURI())
                 .method(((ServerWebExchange) exchange).getRequest().getMethod())
                 .headers(((ServerWebExchange) exchange).getRequest().getHeaders())
-                .body(Mono.just(parts))
-                ;
+                .body(Mono.just(parts));
 
         handler.handleMultipartRequest(serverRequest)
                 .flatMap(response -> response.writeTo(exchange, new DefaultContext()))
