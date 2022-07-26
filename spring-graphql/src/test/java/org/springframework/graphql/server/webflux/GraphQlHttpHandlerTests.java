@@ -185,13 +185,11 @@ public class GraphQlHttpHandlerTests {
 
         MockServerWebExchange exchange = MockServerWebExchange.from(httpRequest);
 
-
         Map<String, Object> map = new HashMap<>();
         map.put("query", body);
         map.put("variables", variables);
         LinkedMultiValueMap<String, Object> parts = new LinkedMultiValueMap<>();
 
-        //parts.add("operations", map);
         addJsonEncodedPart(parts, "operations", map);
 
         int number = 0;
@@ -201,11 +199,9 @@ public class GraphQlHttpHandlerTests {
             Object resource = entry.getValue();
             String variableName = entry.getKey();
             String partName = "uploadPart" + number;
-            //parts.add(partName, resource);
             addFilePart(parts, partName, (Resource) resource);
             mappings.put(partName, Collections.singletonList("variables." + variableName));
         }
-        // parts.add("map", mappings);
         addJsonEncodedPart(parts, "map", mappings);
 
         MockServerRequest serverRequest = MockServerRequest.builder()
@@ -225,19 +221,21 @@ public class GraphQlHttpHandlerTests {
 
     private void addJsonEncodedPart(LinkedMultiValueMap<String, Object> parts, String name, Object toSerialize) {
         ResolvableType resolvableType = ResolvableType.forClass(HashMap.class);
-        Flux<DataBuffer> bufferFlux = jackson2JsonEncoder.encode(Mono.just(toSerialize), DefaultDataBufferFactory.sharedInstance,
-                //ResolvableType.NONE,
+        Flux<DataBuffer> bufferFlux = jackson2JsonEncoder.encode(
+                Mono.just(toSerialize),
+                DefaultDataBufferFactory.sharedInstance,
                 resolvableType,
-                MediaType.APPLICATION_JSON, null);
-        TestPart operations1 = new TestPart(name, bufferFlux);
-        parts.add(name, operations1);
+                MediaType.APPLICATION_JSON,
+                null
+        );
+        TestPart part = new TestPart(name, bufferFlux);
+        parts.add(name, part);
     }
 
     private void addFilePart(LinkedMultiValueMap<String, Object> parts, String name, Resource resource) {
-        Flux<DataBuffer> read = DataBufferUtils.read(resource, DefaultDataBufferFactory.sharedInstance, 1024);
-
-        TestFilePart operations1 = new TestFilePart(name, resource.getFilename(), read);
-        parts.add(name, operations1);
+        Flux<DataBuffer> dataBufferFlux = DataBufferUtils.read(resource, DefaultDataBufferFactory.sharedInstance, 1024);
+        TestFilePart filePart = new TestFilePart(name, resource.getFilename(), dataBufferFlux);
+        parts.add(name, filePart);
     }
 
 	private static class DefaultContext implements ServerResponse.Context {
