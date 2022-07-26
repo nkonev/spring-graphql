@@ -35,6 +35,8 @@ import org.springframework.http.MediaType;
 import org.springframework.util.Assert;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import static org.springframework.graphql.client.MultipartBodyCreator.convertRequestToMultipartData;
+
 
 /**
  * Transport to execute GraphQL requests over HTTP via {@link WebClient}.
@@ -92,44 +94,6 @@ final class HttpGraphQlTransport implements GraphQlTransport {
                 .map(ResponseMapGraphQlResponse::new);
     }
 
-    private MultiValueMap<String, ?> convertRequestToMultipartData(GraphQlRequest request) {
-        DefaultClientMultipartGraphQlRequest multipartRequest = (DefaultClientMultipartGraphQlRequest) request;
-//        String query = request.getDocument();
-//        String operationName  = request.getOperationName();
-//        Map<String, Object> variables  = request.getVariables();
-
-
-// 		Map<String, Object> map = new LinkedHashMap<>(3);
-//		map.put("query", getDocument());
-//		if (getOperationName() != null) {
-//			map.put("operationName", getOperationName());
-//		}
-//		if (!CollectionUtils.isEmpty(getVariables())) {
-//			map.put("variables", new LinkedHashMap<>(getVariables()));
-//		}
-//		if (!CollectionUtils.isEmpty(getExtensions())) {
-//			map.put("extensions", new LinkedHashMap<>(getExtensions()));
-//		}
-        MultipartBodyBuilder builder = new MultipartBodyBuilder();
-        // curl --location --request POST 'http://localhost:8889/graphql' \
-        //--form 'operations="{ \"query\": \"mutation FileUpload($file: Upload!) {fileUpload(file: $file){id}}\" , \"variables\": {\"file\": null}}"' \
-        //--form 'fileForm1=@"/home/nkonev/Pictures/mad.jpg"' \
-        //--form 'map="{\"fileForm1\": [\"variables.file\"]}"'
-        builder.part("operations", multipartRequest.toMap());
-
-        int number = 0;
-        Map<String, List<String>> mappings = new HashMap<>();
-        for (Map.Entry<String , Object> entry : multipartRequest.getUploads().entrySet()) {
-            number++;
-            Object resource = entry.getValue();
-            String variableName = entry.getKey();
-            String partName = "uploadPart" + number;
-            builder.part(partName, resource);
-            mappings.put(partName, Collections.singletonList("variables." + variableName));
-        }
-        builder.part("map", mappings);
-        return builder.build();
-    }
 
     @Override
 	public Flux<GraphQlResponse> executeSubscription(GraphQlRequest request) {

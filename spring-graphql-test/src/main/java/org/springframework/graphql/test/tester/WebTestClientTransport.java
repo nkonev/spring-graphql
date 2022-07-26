@@ -33,6 +33,8 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.util.Assert;
 
+import static org.springframework.graphql.client.MultipartBodyCreator.convertRequestToMultipartData;
+
 /**
  * {@code GraphQlTransport} for GraphQL over HTTP via {@link WebTestClient}.
  *
@@ -76,17 +78,10 @@ final class WebTestClientTransport implements GraphQlTransport {
     @Override
     public Mono<GraphQlResponse> executeUpload(GraphQlRequest request) {
 
-        MultipartFile multipartFile = null;
-
-        MultipartBodyBuilder builder = new MultipartBodyBuilder();
-        builder.part("file", multipartFile.getResource());
-        Map<String, Object> operations = request.toMap();
-        builder.part("operations", operations);
-
         Map<String, Object> responseMap = this.webTestClient.post()
                 .contentType(MediaType.MULTIPART_FORM_DATA)
                 .accept(MediaType.APPLICATION_JSON)
-                .body(BodyInserters.fromMultipartData(builder.build()))
+                .body(BodyInserters.fromMultipartData(convertRequestToMultipartData(request)))
                 .exchange()
                 .expectStatus().isOk()
                 .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_JSON)
