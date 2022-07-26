@@ -176,7 +176,12 @@ public abstract class AbstractGraphQlTesterBuilder<B extends AbstractGraphQlTest
 						.executeSubscription()
 						.cast(GraphQlResponse.class);
 			}
-		};
+
+            @Override
+            public Mono<GraphQlResponse> executeUpload(GraphQlRequest request) {
+                throw new UnsupportedOperationException("File upload is not supported");
+            }
+        };
 	}
 
 
