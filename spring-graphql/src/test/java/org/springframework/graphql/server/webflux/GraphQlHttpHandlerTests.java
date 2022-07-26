@@ -84,7 +84,9 @@ public class GraphQlHttpHandlerTests {
                         "type Mutation {\n" +
                         "    fileUpload(fileInput: Upload!): FileUploadResult!\n" +
                         "}")
-                .mutationFetcher("fileUpload", (env) -> Collections.singletonMap("responseFileName", ((FilePart) env.getVariables().get("fileInput")).filename()))
+                .mutationFetcher("fileUpload", (env) -> Collections.singletonMap(
+                        "responseFileName", ((FilePart) env.getVariables().get("fileInput")).filename())
+                )
                 .runtimeWiring(builder -> builder.scalar(GraphQLScalarType.newScalar()
                         .name("Upload")
                         .coercing(new UploadCoercing())
@@ -96,7 +98,8 @@ public class GraphQlHttpHandlerTests {
                 .build();
 
         MockServerHttpResponse httpResponse = handleMultipartRequest(
-                httpRequest, handler, "mutation FileUpload($fileInput: Upload!) {fileUpload(fileInput: $fileInput){responseFileName}}",
+                httpRequest, handler, "mutation FileUpload($fileInput: Upload!) " +
+                        "{fileUpload(fileInput: $fileInput){responseFileName}}",
                 Collections.singletonMap("variables", Collections.singletonMap("fileInput", null)),
                 Collections.singletonMap("fileInput", new ClassPathResource("/foo.txt"))
         );
