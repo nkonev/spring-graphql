@@ -187,7 +187,7 @@ public class GraphQlHttpHandlerTests {
 
         MockServerWebExchange exchange = MockServerWebExchange.from(httpRequest);
 
-        LinkedMultiValueMap<String, Object> parts = new LinkedMultiValueMap<>();
+        LinkedMultiValueMap<String, Part> parts = new LinkedMultiValueMap<>();
 
         Map<String, Object> operations = new HashMap<>();
         operations.put("query", body);
@@ -220,7 +220,7 @@ public class GraphQlHttpHandlerTests {
         return exchange.getResponse();
     }
 
-    private void addJsonEncodedPart(LinkedMultiValueMap<String, Object> parts, String name, Object toSerialize) {
+    private void addJsonEncodedPart(LinkedMultiValueMap<String, Part> parts, String name, Object toSerialize) {
         ResolvableType resolvableType = ResolvableType.forClass(HashMap.class);
         Flux<DataBuffer> bufferFlux = jackson2JsonEncoder.encode(
                 Mono.just(toSerialize),
@@ -233,7 +233,7 @@ public class GraphQlHttpHandlerTests {
         parts.add(name, part);
     }
 
-    private void addFilePart(LinkedMultiValueMap<String, Object> parts, String name, Resource resource) {
+    private void addFilePart(LinkedMultiValueMap<String, Part> parts, String name, Resource resource) {
         Flux<DataBuffer> dataBufferFlux = DataBufferUtils.read(resource, DefaultDataBufferFactory.sharedInstance, 1024);
         TestFilePart filePart = new TestFilePart(name, resource.getFilename(), dataBufferFlux);
         parts.add(name, filePart);
