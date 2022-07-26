@@ -60,8 +60,9 @@ public class GraphQlHttpHandlerTests {
 	private final GraphQlHttpHandler greetingHandler = GraphQlSetup.schemaContent("type Query { greeting: String }")
 			.queryFetcher("greeting", (env) -> "Hello").toHttpHandlerWebFlux();
 
+    private final Jackson2JsonEncoder jackson2JsonEncoder = new Jackson2JsonEncoder();
 
-	@Test
+    @Test
 	void shouldProduceApplicationJsonByDefault() {
 		MockServerHttpRequest httpRequest = MockServerHttpRequest.post("/")
 				.contentType(MediaType.APPLICATION_JSON).accept(MediaType.ALL).build();
@@ -176,8 +177,6 @@ public class GraphQlHttpHandlerTests {
 
 		return exchange.getResponse();
 	}
-
-    Jackson2JsonEncoder jackson2JsonEncoder = new Jackson2JsonEncoder();
 
     private MockServerHttpResponse handleMultipartRequest(
             MockServerHttpRequest httpRequest, GraphQlHttpHandler handler, String body,
