@@ -15,20 +15,25 @@
  */
 package org.springframework.graphql.server.webflux;
 
+import java.nio.file.Path;
 import java.util.*;
 
 import com.jayway.jsonpath.DocumentContext;
 import com.jayway.jsonpath.JsonPath;
 import graphql.schema.GraphQLScalarType;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.ResolvableType;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.core.io.buffer.DataBufferUtils;
+import org.springframework.core.io.buffer.DefaultDataBufferFactory;
 import org.springframework.graphql.coercing.webflux.UploadCoercing;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.client.MultipartBodyBuilder;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.http.codec.multipart.Part;
 import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.util.MultiValueMap;
-import org.springframework.web.reactive.function.BodyInserters;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import org.springframework.graphql.GraphQlSetup;
@@ -78,7 +83,7 @@ public class GraphQlHttpHandlerTests {
                         "type Mutation {\n" +
                         "    fileUpload(file: Upload!): FileUploadResult!\n" +
                         "}")
-                .queryFetcher("fileUpload", (env) -> "{\"id\": \"uuid-1\"}")
+                .mutationFetcher("fileUpload", (env) -> Collections.singletonMap("id", "uuid-1"))
                 .runtimeWiring(builder -> builder.scalar(GraphQLScalarType.newScalar()
                         .name("Upload")
                         .coercing(new UploadCoercing())
@@ -86,10 +91,11 @@ public class GraphQlHttpHandlerTests {
                 .toHttpHandlerWebFlux();
 
         MockServerHttpRequest httpRequest = MockServerHttpRequest.post("/")
-                .contentType(MediaType.MULTIPART_FORM_DATA).accept(MediaType.ALL).build();
+                .contentType(MediaType.MULTIPART_FORM_DATA).accept(MediaType.ALL)
+                .build();
 
         MockServerHttpResponse httpResponse = handleMultipartRequest(
-                httpRequest, handler, Collections.singletonMap("query", "mutation FileUpload($file: Upload!) {fileUpload(file: $file){id}}"),
+                httpRequest, handler, "mutation FileUpload($file: Upload!) {fileUpload(file: $file){id}}",
                 Collections.singletonMap("variables", Collections.singletonMap("file", null)),
                 Collections.singletonMap("file", new ClassPathResource("/foo.txt"))
         );
@@ -171,17 +177,22 @@ public class GraphQlHttpHandlerTests {
 		return exchange.getResponse();
 	}
 
+    Jackson2JsonEncoder jackson2JsonEncoder = new Jackson2JsonEncoder();
+
     private MockServerHttpResponse handleMultipartRequest(
-            MockServerHttpRequest httpRequest, GraphQlHttpHandler handler, Map<String, String> body,
+            MockServerHttpRequest httpRequest, GraphQlHttpHandler handler, String body,
             Map<String, Object> variables, Map<String, Object> files) {
 
         MockServerWebExchange exchange = MockServerWebExchange.from(httpRequest);
 
-        Map<String, Object> map = new LinkedHashMap<>(3);
+
+        Map<String, Object> map = new HashMap<>();
         map.put("query", body);
         map.put("variables", variables);
-        LinkedMultiValueMap<String, Object> builder = new LinkedMultiValueMap<>();
-        builder.add("operations", map);
+        LinkedMultiValueMap<String, Object> parts = new LinkedMultiValueMap<>();
+
+        //parts.add("operations", map);
+        addJsonEncodedPart(parts, "operations", map);
 
         int number = 0;
         Map<String, List<String>> mappings = new HashMap<>();
@@ -190,18 +201,20 @@ public class GraphQlHttpHandlerTests {
             Object resource = entry.getValue();
             String variableName = entry.getKey();
             String partName = "uploadPart" + number;
-            builder.add(partName, resource);
+            //parts.add(partName, resource);
+            addFilePart(parts, partName, (Resource) resource);
             mappings.put(partName, Collections.singletonList("variables." + variableName));
         }
-        builder.add("map", mappings);
-//        MultiValueMap<String, HttpEntity<?>> multipartRequest = builder.build();
+        // parts.add("map", mappings);
+        addJsonEncodedPart(parts, "map", mappings);
 
         MockServerRequest serverRequest = MockServerRequest.builder()
                 .exchange(exchange)
                 .uri(((ServerWebExchange) exchange).getRequest().getURI())
                 .method(((ServerWebExchange) exchange).getRequest().getMethod())
                 .headers(((ServerWebExchange) exchange).getRequest().getHeaders())
-                .body(BodyInserters.fromMultipartData(builder));
+                .body(Mono.just(parts))
+                ;
 
         handler.handleMultipartRequest(serverRequest)
                 .flatMap(response -> response.writeTo(exchange, new DefaultContext()))
@@ -210,6 +223,22 @@ public class GraphQlHttpHandlerTests {
         return exchange.getResponse();
     }
 
+    private void addJsonEncodedPart(LinkedMultiValueMap<String, Object> parts, String name, Object toSerialize) {
+        ResolvableType resolvableType = ResolvableType.forClass(HashMap.class);
+        Flux<DataBuffer> bufferFlux = jackson2JsonEncoder.encode(Mono.just(toSerialize), DefaultDataBufferFactory.sharedInstance,
+                //ResolvableType.NONE,
+                resolvableType,
+                MediaType.APPLICATION_JSON, null);
+        TestPart operations1 = new TestPart(name, bufferFlux);
+        parts.add(name, operations1);
+    }
+
+    private void addFilePart(LinkedMultiValueMap<String, Object> parts, String name, Resource resource) {
+        Flux<DataBuffer> read = DataBufferUtils.read(resource, DefaultDataBufferFactory.sharedInstance, 1024);
+
+        TestFilePart operations1 = new TestFilePart(name, resource.getFilename(), read);
+        parts.add(name, operations1);
+    }
 
 	private static class DefaultContext implements ServerResponse.Context {
 
@@ -224,5 +253,73 @@ public class GraphQlHttpHandlerTests {
 		}
 
 	}
+
+    private static class TestPart implements Part {
+
+        private final String name;
+
+
+        private final Flux<DataBuffer> content;
+
+        private TestPart(String name,  Flux<DataBuffer> content) {
+            this.name = name;
+            this.content = content;
+        }
+
+        @Override
+        public String name() {
+            return name;
+        }
+
+        @Override
+        public HttpHeaders headers() {
+            return new HttpHeaders();
+        }
+
+        @Override
+        public Flux<DataBuffer> content() {
+            return content;
+        }
+    }
+
+    private static class TestFilePart implements FilePart {
+
+        private final String name;
+
+        private final String filename;
+
+        private final Flux<DataBuffer> content;
+
+        private TestFilePart(String name, String filename, Flux<DataBuffer> content) {
+            this.name = name;
+            this.filename = filename;
+            this.content = content;
+        }
+
+        @Override
+        public String name() {
+            return name;
+        }
+
+        @Override
+        public HttpHeaders headers() {
+            return new HttpHeaders();
+        }
+
+        @Override
+        public Flux<DataBuffer> content() {
+            return content;
+        }
+
+        @Override
+        public String filename() {
+            return filename;
+        }
+
+        @Override
+        public Mono<Void> transferTo(Path dest) {
+            return Mono.error(new RuntimeException("Not implemented"));
+        }
+    }
 
 }
