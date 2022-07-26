@@ -86,7 +86,7 @@ public class GraphQlHttpHandlerTests {
                 .toHttpHandlerWebFlux();
 
         MockServerHttpRequest httpRequest = MockServerHttpRequest.post("/")
-                .contentType(MediaType.APPLICATION_JSON).accept(MediaType.ALL).build();
+                .contentType(MediaType.MULTIPART_FORM_DATA).accept(MediaType.ALL).build();
 
         MockServerHttpResponse httpResponse = handleMultipartRequest(
                 httpRequest, handler, Collections.singletonMap("query", "mutation FileUpload($file: Upload!) {fileUpload(file: $file){id}}"),
