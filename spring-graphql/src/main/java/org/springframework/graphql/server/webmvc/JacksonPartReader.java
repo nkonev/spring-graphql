@@ -7,11 +7,11 @@ import org.springframework.core.GenericTypeResolver;
 import java.io.IOException;
 import java.lang.reflect.Type;
 
-public class JacksonParamConverter implements ParamConverter {
+public class JacksonPartReader implements PartReader {
 
     private final ObjectMapper objectMapper;
 
-    public JacksonParamConverter(ObjectMapper objectMapper) {
+    public JacksonPartReader(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
     }
 

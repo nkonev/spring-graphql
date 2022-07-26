@@ -73,7 +73,7 @@ public class GraphQlHttpHandler {
 
 	private final WebGraphQlHandler graphQlHandler;
 
-    private final ParamConverter paramConverter;
+    private final PartReader partReader;
 
 	/**
 	 * Create a new instance.
@@ -82,14 +82,14 @@ public class GraphQlHttpHandler {
 	public GraphQlHttpHandler(WebGraphQlHandler graphQlHandler) {
 		Assert.notNull(graphQlHandler, "WebGraphQlHandler is required");
 		this.graphQlHandler = graphQlHandler;
-        this.paramConverter = new JacksonParamConverter(new ObjectMapper());
+        this.partReader = new JacksonPartReader(new ObjectMapper());
 	}
 
-    public GraphQlHttpHandler(WebGraphQlHandler graphQlHandler, ParamConverter paramConverter) {
+    public GraphQlHttpHandler(WebGraphQlHandler graphQlHandler, PartReader partReader) {
         Assert.notNull(graphQlHandler, "WebGraphQlHandler is required");
-        Assert.notNull(paramConverter, "PartConverter is required");
+        Assert.notNull(partReader, "PartConverter is required");
         this.graphQlHandler = graphQlHandler;
-        this.paramConverter = paramConverter;
+        this.partReader = partReader;
     }
 
 	/**
@@ -129,7 +129,7 @@ public class GraphQlHttpHandler {
 
         Map<String, Object> inputQuery = operation
             .map(part ->
-                paramConverter.<Map<String, Object>>readPart(part, MAP_PARAMETERIZED_TYPE_REF.getType())
+                partReader.<Map<String, Object>>readPart(part, MAP_PARAMETERIZED_TYPE_REF.getType())
             )
             .orElse(new HashMap<>());
 
@@ -140,7 +140,7 @@ public class GraphQlHttpHandler {
 
 		Map<String, List<String>> fileMapInput =
             mapParam.map(part ->
-                paramConverter.<Map<String, List<String>>>readPart(part, LIST_PARAMETERIZED_TYPE_REF.getType())
+                partReader.<Map<String, List<String>>>readPart(part, LIST_PARAMETERIZED_TYPE_REF.getType())
             )
             .orElse(new HashMap<>());
 
