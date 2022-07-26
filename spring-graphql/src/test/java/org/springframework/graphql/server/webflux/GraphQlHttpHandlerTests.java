@@ -183,7 +183,7 @@ public class GraphQlHttpHandlerTests {
 
     private MockServerHttpResponse handleMultipartRequest(
             MockServerHttpRequest httpRequest, GraphQlHttpHandler handler, String body,
-            Map<String, Object> variables, Map<String, Object> files) {
+            Map<String, Object> variables, Map<String, Resource> files) {
 
         MockServerWebExchange exchange = MockServerWebExchange.from(httpRequest);
 
@@ -196,12 +196,12 @@ public class GraphQlHttpHandlerTests {
 
         int number = 0;
         Map<String, List<String>> partMappings = new HashMap<>();
-        for (Map.Entry<String , Object> entry : files.entrySet()) {
+        for (Map.Entry<String, Resource> entry : files.entrySet()) {
             number++;
-            Object resource = entry.getValue();
+            Resource resource = entry.getValue();
             String variableName = entry.getKey();
             String partName = "uploadPart" + number;
-            addFilePart(parts, partName, (Resource) resource);
+            addFilePart(parts, partName, resource);
             partMappings.put(partName, Collections.singletonList("variables." + variableName));
         }
         addJsonEncodedPart(parts, "map", partMappings);
