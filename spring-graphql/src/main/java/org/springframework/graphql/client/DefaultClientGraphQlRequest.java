@@ -29,7 +29,7 @@ import org.springframework.lang.Nullable;
  * @author Rossen Stoyanchev
  * @since 1.0.0
  */
-final class DefaultClientGraphQlRequest extends DefaultGraphQlRequest implements ClientGraphQlRequest {
+class DefaultClientGraphQlRequest extends DefaultGraphQlRequest implements ClientGraphQlRequest {
 
 	private final Map<String, Object> attributes = new ConcurrentHashMap<>();
 

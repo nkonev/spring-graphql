@@ -17,7 +17,6 @@
 package org.springframework.graphql.client;
 
 
-import org.springframework.graphql.support.DefaultGraphQlRequest;
 import org.springframework.lang.Nullable;
 
 import java.util.Map;
@@ -29,9 +28,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * @author Nikita Konev
  * @since 1.0.0
  */
-final class MultipartClientGraphQlRequest extends DefaultGraphQlRequest implements ClientGraphQlRequest {
-
-	private final Map<String, Object> attributes = new ConcurrentHashMap<>();
+final class MultipartClientGraphQlRequest extends DefaultClientGraphQlRequest implements ClientGraphQlRequest {
 
     private final Map<String, Object> files = new ConcurrentHashMap<>();
 
@@ -41,15 +38,8 @@ final class MultipartClientGraphQlRequest extends DefaultGraphQlRequest implemen
 			Map<String, Object> attributes,
             Map<String, Object> files) {
 
-		super(document, operationName, variables, extensions);
-		this.attributes.putAll(attributes);
+		super(document, operationName, variables, extensions, attributes);
         this.files.putAll(files);
-	}
-
-
-	@Override
-	public Map<String, Object> getAttributes() {
-		return this.attributes;
 	}
 
     public Map<String, Object> getFiles() {
