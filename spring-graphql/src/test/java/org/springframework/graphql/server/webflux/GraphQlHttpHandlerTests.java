@@ -50,7 +50,7 @@ import org.springframework.web.reactive.result.view.ViewResolver;
 import org.springframework.web.server.ServerWebExchange;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.graphql.client.MultipartBodyCreator.createParts;
+import static org.springframework.graphql.client.MultipartBodyCreator.createFilePartsAndMapping;
 
 /**
  * Tests for {@link GraphQlHttpHandler}.
@@ -196,7 +196,7 @@ public class GraphQlHttpHandlerTests {
         addJsonEncodedPart(parts, "operations", operations);
 
         Map<String, List<String>> partMappings = new HashMap<>();
-        createParts(files, partMappings, (partName, resource) -> addFilePart(parts, partName, (Resource) resource));
+        createFilePartsAndMapping(files, partMappings, (partName, resource) -> addFilePart(parts, partName, (Resource) resource));
 
         addJsonEncodedPart(parts, "map", partMappings);
 

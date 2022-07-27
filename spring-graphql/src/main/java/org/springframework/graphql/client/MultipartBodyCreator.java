@@ -18,13 +18,13 @@ public final class MultipartBodyCreator {
         builder.part("operations", multipartRequest.toMap());
 
         Map<String, List<String>> partMappings = new HashMap<>();
-        createParts(multipartRequest.getFiles(), partMappings, builder::part);
+        createFilePartsAndMapping(multipartRequest.getFiles(), partMappings, builder::part);
 
         builder.part("map", partMappings);
         return builder.build();
     }
 
-    public static void createParts(
+    public static void createFilePartsAndMapping(
             Map<String, ?> fileRequestEntries,
             Map<String, List<String>> partMappings,
             BiConsumer<String, Object> partConsumer) {
