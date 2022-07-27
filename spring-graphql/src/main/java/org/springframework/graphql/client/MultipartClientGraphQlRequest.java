@@ -29,13 +29,13 @@ import java.util.concurrent.ConcurrentHashMap;
  * @author Nikita Konev
  * @since 1.0.0
  */
-final class DefaultClientMultipartGraphQlRequest extends DefaultGraphQlRequest implements ClientGraphQlRequest {
+final class MultipartClientGraphQlRequest extends DefaultGraphQlRequest implements ClientGraphQlRequest {
 
 	private final Map<String, Object> attributes = new ConcurrentHashMap<>();
 
     private final Map<String, Object> files = new ConcurrentHashMap<>();
 
-    DefaultClientMultipartGraphQlRequest(
+    MultipartClientGraphQlRequest(
 			String document, @Nullable String operationName,
 			Map<String, Object> variables, Map<String, Object> extensions,
 			Map<String, Object> attributes,

@@ -203,7 +203,7 @@ final class DefaultGraphQlClient implements GraphQlClient {
 
         private Mono<ClientGraphQlRequest> initFileUploadRequest() {
             return this.documentMono.map(document ->
-                    new DefaultClientMultipartGraphQlRequest(document, this.operationName, this.variables, this.extensions, this.attributes, this.files));
+                    new MultipartClientGraphQlRequest(document, this.operationName, this.variables, this.extensions, this.attributes, this.files));
         }
 
 	}

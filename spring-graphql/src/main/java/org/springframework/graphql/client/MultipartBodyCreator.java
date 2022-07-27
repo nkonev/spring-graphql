@@ -12,7 +12,7 @@ import java.util.Map;
 public final class MultipartBodyCreator {
 
     public static MultiValueMap<String, ?> convertRequestToMultipartData(GraphQlRequest request) {
-        DefaultClientMultipartGraphQlRequest multipartRequest = (DefaultClientMultipartGraphQlRequest) request;
+        MultipartClientGraphQlRequest multipartRequest = (MultipartClientGraphQlRequest) request;
         MultipartBodyBuilder builder = new MultipartBodyBuilder();
         builder.part("operations", multipartRequest.toMap());
 
