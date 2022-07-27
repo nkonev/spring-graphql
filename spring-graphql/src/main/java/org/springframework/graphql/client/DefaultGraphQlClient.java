@@ -181,8 +181,8 @@ final class DefaultGraphQlClient implements GraphQlClient {
 		}
 
         @Override
-        public Mono<ClientGraphQlResponse> executeUpload() {
-            return initUploadRequest().flatMap(request -> fileUploadChain.next(request)
+        public Mono<ClientGraphQlResponse> executeFileUpload() {
+            return initFileUploadRequest().flatMap(request -> fileUploadChain.next(request)
                     .onErrorResume(
                             ex -> !(ex instanceof GraphQlClientException),
                             ex -> Mono.error(new GraphQlTransportException(ex, request))));
@@ -201,7 +201,7 @@ final class DefaultGraphQlClient implements GraphQlClient {
 					new DefaultClientGraphQlRequest(document, this.operationName, this.variables, this.extensions, this.attributes));
 		}
 
-        private Mono<ClientGraphQlRequest> initUploadRequest() {
+        private Mono<ClientGraphQlRequest> initFileUploadRequest() {
             return this.documentMono.map(document ->
                     new DefaultClientMultipartGraphQlRequest(document, this.operationName, this.variables, this.extensions, this.attributes, this.files));
         }

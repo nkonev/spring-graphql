@@ -211,7 +211,7 @@ public interface GraphQlClient {
 		 */
 		Mono<ClientGraphQlResponse> execute();
 
-        Mono<ClientGraphQlResponse> executeUpload();
+        Mono<ClientGraphQlResponse> executeFileUpload();
 
         /**
 		 * Execute a "subscription" request and return a stream of responses.
