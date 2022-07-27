@@ -8,6 +8,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiConsumer;
 
 public final class MultipartBodyCreator {
 
@@ -16,18 +17,26 @@ public final class MultipartBodyCreator {
         MultipartBodyBuilder builder = new MultipartBodyBuilder();
         builder.part("operations", multipartRequest.toMap());
 
-        int number = 0;
         Map<String, List<String>> partMappings = new HashMap<>();
-        for (Map.Entry<String , Object> entry : multipartRequest.getFiles().entrySet()) {
+        createParts(multipartRequest.getFiles(), partMappings, builder::part);
+
+        builder.part("map", partMappings);
+        return builder.build();
+    }
+
+    public static void createParts(
+            Map<String, ?> fileRequestEntries,
+            Map<String, List<String>> partMappings,
+            BiConsumer<String, Object> partConsumer) {
+        int number = 0;
+        for (Map.Entry<String, ?> entry : fileRequestEntries.entrySet()) {
             number++;
             Object resource = entry.getValue();
             String variableName = entry.getKey();
             String partName = "uploadPart" + number;
-            builder.part(partName, resource);
+            partConsumer.accept(partName, resource);
             partMappings.put(partName, Collections.singletonList("variables." + variableName));
         }
-        builder.part("map", partMappings);
-        return builder.build();
     }
 
 }
