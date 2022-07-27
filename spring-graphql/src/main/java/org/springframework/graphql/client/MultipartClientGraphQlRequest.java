@@ -24,7 +24,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Default implementation of {@link ClientGraphQlRequest}.
+ * Multipart implementation of {@link ClientGraphQlRequest}.
  *
  * @author Nikita Konev
  * @since 1.0.0
