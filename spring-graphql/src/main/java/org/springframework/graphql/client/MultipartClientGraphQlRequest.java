@@ -30,20 +30,20 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 final class MultipartClientGraphQlRequest extends DefaultClientGraphQlRequest implements ClientGraphQlRequest {
 
-    private final Map<String, Object> files = new ConcurrentHashMap<>();
+    private final Map<String, Object> fileVariables = new ConcurrentHashMap<>();
 
     MultipartClientGraphQlRequest(
 			String document, @Nullable String operationName,
 			Map<String, Object> variables, Map<String, Object> extensions,
 			Map<String, Object> attributes,
-            Map<String, Object> files) {
+            Map<String, Object> fileVariables) {
 
 		super(document, operationName, variables, extensions, attributes);
-        this.files.putAll(files);
+        this.fileVariables.putAll(fileVariables);
 	}
 
-    public Map<String, Object> getFiles() {
-        return this.files;
+    public Map<String, Object> getFileVariables() {
+        return this.fileVariables;
     }
 
 }

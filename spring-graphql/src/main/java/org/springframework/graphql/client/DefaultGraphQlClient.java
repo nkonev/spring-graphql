@@ -101,7 +101,7 @@ final class DefaultGraphQlClient implements GraphQlClient {
 
 		private final Map<String, Object> extensions = new LinkedHashMap<>();
 
-        private final Map<String, Object> files = new LinkedHashMap<>();
+        private final Map<String, Object> fileVariables = new LinkedHashMap<>();
 
         DefaultRequestSpec(Mono<String> documentMono) {
 			Assert.notNull(documentMono, "'document' is required");
@@ -127,14 +127,14 @@ final class DefaultGraphQlClient implements GraphQlClient {
 		}
 
         @Override
-        public DefaultRequestSpec file(String name, Object value) {
-            this.files.put(name, value);
+        public DefaultRequestSpec fileVariable(String name, Object value) {
+            this.fileVariables.put(name, value);
             return this;
         }
 
         @Override
-        public RequestSpec files(Map<String, Object> files) {
-            this.files.putAll(variables);
+        public RequestSpec fileVariables(Map<String, Object> files) {
+            this.fileVariables.putAll(variables);
             return this;
         }
 
@@ -203,7 +203,7 @@ final class DefaultGraphQlClient implements GraphQlClient {
 
         private Mono<ClientGraphQlRequest> initFileUploadRequest() {
             return this.documentMono.map(document ->
-                    new MultipartClientGraphQlRequest(document, this.operationName, this.variables, this.extensions, this.attributes, this.files));
+                    new MultipartClientGraphQlRequest(document, this.operationName, this.variables, this.extensions, this.attributes, this.fileVariables));
         }
 
 	}
