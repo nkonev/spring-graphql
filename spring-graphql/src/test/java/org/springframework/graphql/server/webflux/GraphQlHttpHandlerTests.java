@@ -106,7 +106,8 @@ public class GraphQlHttpHandlerTests {
         );
 
         assertThat(httpResponse.getBodyAsString().block())
-                .isEqualTo("{\"data\":{\"fileUpload\":{\"responseFileName\":\"foo.txt\"}}}");    }
+                .isEqualTo("{\"data\":{\"fileUpload\":{\"responseFileName\":\"foo.txt\"}}}");
+    }
 
 	@Test
 	void shouldProduceApplicationGraphQl() {
