@@ -101,7 +101,7 @@ public class GraphQlHttpHandlerTests {
         MockServerHttpResponse httpResponse = handleMultipartRequest(
                 httpRequest, handler, "mutation FileUpload($fileInput: Upload!) " +
                         "{fileUpload(fileInput: $fileInput){responseFileName}}",
-                Collections.singletonMap("variables", Collections.singletonMap("fileInput", null)),
+                Collections.emptyMap(),
                 Collections.singletonMap("fileInput", new ClassPathResource("/foo.txt"))
         );
 
@@ -185,7 +185,7 @@ public class GraphQlHttpHandlerTests {
 
     private MockServerHttpResponse handleMultipartRequest(
             MockServerHttpRequest httpRequest, GraphQlHttpHandler handler, String body,
-            Map<String, Object> variables, Map<String, Resource> files) {
+            Map<String, Object> variables, Map<String, Object> files) {
 
         MockServerWebExchange exchange = MockServerWebExchange.from(httpRequest);
 
