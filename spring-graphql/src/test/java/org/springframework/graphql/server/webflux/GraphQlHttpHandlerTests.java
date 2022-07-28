@@ -17,6 +17,7 @@ package org.springframework.graphql.server.webflux;
 
 import java.nio.file.Path;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import com.jayway.jsonpath.DocumentContext;
 import com.jayway.jsonpath.JsonPath;
@@ -79,15 +80,10 @@ public class GraphQlHttpHandlerTests {
         GraphQlHttpHandler handler = GraphQlSetup.schemaContent(
                         "type Query { ping: String } \n" +
                         "scalar Upload\n" +
-                        "type FileUploadResult {\n" +
-                        "  responseFileName: String!\n" +
-                        "}\n" +
                         "type Mutation {\n" +
-                        "    fileUpload(fileInput: Upload!): FileUploadResult!\n" +
+                        "    fileUpload(fileInput: Upload!): String!\n" +
                         "}")
-                .mutationFetcher("fileUpload", (env) -> Collections.singletonMap(
-                        "responseFileName", ((FilePart) env.getVariables().get("fileInput")).filename())
-                )
+                .mutationFetcher("fileUpload", (env) -> ((FilePart) env.getVariables().get("fileInput")).filename())
                 .runtimeWiring(builder -> builder.scalar(GraphQLScalarType.newScalar()
                         .name("Upload")
                         .coercing(new UploadCoercing())
@@ -100,13 +96,46 @@ public class GraphQlHttpHandlerTests {
 
         MockServerHttpResponse httpResponse = handleMultipartRequest(
                 httpRequest, handler, "mutation FileUpload($fileInput: Upload!) " +
-                        "{fileUpload(fileInput: $fileInput){responseFileName}}",
+                        "{fileUpload(fileInput: $fileInput) }",
                 Collections.emptyMap(),
                 Collections.singletonMap("fileInput", new ClassPathResource("/foo.txt"))
         );
 
         assertThat(httpResponse.getBodyAsString().block())
-                .isEqualTo("{\"data\":{\"fileUpload\":{\"responseFileName\":\"foo.txt\"}}}");
+                .isEqualTo("{\"data\":{\"fileUpload\":\"foo.txt\"}}");
+    }
+
+    @Test
+    void shouldPassTwoFiles() {
+        GraphQlHttpHandler handler = GraphQlSetup.schemaContent(
+                        "type Query { ping: String } \n" +
+                                "scalar Upload\n" +
+                                "type Mutation {\n" +
+                                "    multipleFilesUpload(multipleFileInputs: [Upload!]!): [String!]!\n" +
+                                "}")
+                .mutationFetcher("multipleFilesUpload", (env) -> ((Collection<FilePart>) env.getVariables().get("multipleFileInputs")).stream().map(FilePart::filename).collect(Collectors.toList()))
+                .runtimeWiring(builder -> builder.scalar(GraphQLScalarType.newScalar()
+                        .name("Upload")
+                        .coercing(new UploadCoercing())
+                        .build()))
+                .toHttpHandlerWebFlux();
+
+        MockServerHttpRequest httpRequest = MockServerHttpRequest.post("/")
+                .contentType(MediaType.MULTIPART_FORM_DATA).accept(MediaType.ALL)
+                .build();
+
+        Collection<Resource> resources = new ArrayList<>();
+        resources.add(new ClassPathResource("/foo.txt"));
+        resources.add(new ClassPathResource("/bar.txt"));
+        MockServerHttpResponse httpResponse = handleMultipartRequest(
+                httpRequest, handler, "mutation MultipleFilesUpload($multipleFileInputs: [Upload!]!) " +
+                        "{multipleFilesUpload(multipleFileInputs: $multipleFileInputs) }",
+                Collections.emptyMap(),
+                Collections.singletonMap("multipleFileInputs", resources)
+        );
+
+        assertThat(httpResponse.getBodyAsString().block())
+                .isEqualTo("{\"data\":{\"multipleFilesUpload\":[\"foo.txt\",\"bar.txt\"]}}");
     }
 
 	@Test
@@ -185,21 +214,24 @@ public class GraphQlHttpHandlerTests {
 
     private MockServerHttpResponse handleMultipartRequest(
             MockServerHttpRequest httpRequest, GraphQlHttpHandler handler, String body,
-            Map<String, Object> variables, Map<String, Object> files) {
+            Map<String, Object> requestVariables, Map<String, Object> files) {
 
         MockServerWebExchange exchange = MockServerWebExchange.from(httpRequest);
 
         LinkedMultiValueMap<String, Part> parts = new LinkedMultiValueMap<>();
 
+        Map<String, List<String>> partMappings = new HashMap<>();
+        Map<String, Object> variablesFilePlaceholders = createFilePartsAndMapping(files, partMappings, (partName, resource) -> addFilePart(parts, partName, (Resource) resource));
+
+        addJsonEncodedPart(parts, "map", partMappings);
+
         Map<String, Object> operations = new HashMap<>();
         operations.put("query", body);
+        Map<String, Object> variables = new HashMap<>(requestVariables);
+        variables.putAll(variablesFilePlaceholders);
         operations.put("variables", variables);
         addJsonEncodedPart(parts, "operations", operations);
 
-        Map<String, List<String>> partMappings = new HashMap<>();
-        createFilePartsAndMapping(files, partMappings, (partName, resource) -> addFilePart(parts, partName, (Resource) resource));
-
-        addJsonEncodedPart(parts, "map", partMappings);
 
         MockServerRequest serverRequest = MockServerRequest.builder()
                 .exchange(exchange)
