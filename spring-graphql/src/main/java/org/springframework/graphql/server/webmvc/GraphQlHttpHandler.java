@@ -29,13 +29,10 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.Part;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.graphql.server.support.MultipartVariableMapper;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.converter.json.AbstractJackson2HttpMessageConverter;
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
-import org.springframework.http.converter.json.MappingJacksonInputMessage;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
 import reactor.core.publisher.Mono;
@@ -79,7 +76,7 @@ public class GraphQlHttpHandler {
 
 	private final WebGraphQlHandler graphQlHandler;
 
-    private final AbstractJackson2HttpMessageConverter messageConverter;
+    private final PartReader partReader;
 
 	/**
 	 * Create a new instance.
@@ -88,14 +85,14 @@ public class GraphQlHttpHandler {
 	public GraphQlHttpHandler(WebGraphQlHandler graphQlHandler) {
 		Assert.notNull(graphQlHandler, "WebGraphQlHandler is required");
 		this.graphQlHandler = graphQlHandler;
-        this.messageConverter = new MappingJackson2HttpMessageConverter();
+        this.partReader = new JacksonPartReader(new ObjectMapper());
 	}
 
-    public GraphQlHttpHandler(WebGraphQlHandler graphQlHandler, AbstractJackson2HttpMessageConverter messageConverter) {
+    public GraphQlHttpHandler(WebGraphQlHandler graphQlHandler, PartReader partReader) {
         Assert.notNull(graphQlHandler, "WebGraphQlHandler is required");
-        Assert.notNull(messageConverter, "PartConverter is required");
+        Assert.notNull(partReader, "PartConverter is required");
         this.graphQlHandler = graphQlHandler;
-        this.messageConverter = messageConverter;
+        this.partReader = partReader;
     }
 
 	/**
@@ -141,7 +138,7 @@ public class GraphQlHttpHandler {
 		final Map<String, Object> queryVariables = getFromMapOrEmpty(inputQuery, "variables");
 		final Map<String, Object> extensions = getFromMapOrEmpty(inputQuery, "extensions");
 
-        Map<String, MultipartFile> fileParams = getMultipartFiles(httpServletRequest);
+        Map<String, MultipartFile> fileParams = readMultipartFiles(httpServletRequest);
 
         Map<String, List<String>> fileMappings = Optional.ofNullable(this.<Map<String, List<String>>>deserializePart(
                 httpServletRequest,
@@ -198,9 +195,7 @@ public class GraphQlHttpHandler {
                 return null;
             }
             try(InputStream inputStream = part.getInputStream()) {
-                return (T) messageConverter.read(
-                        type, null, new MappingJacksonInputMessage(inputStream, new HttpHeaders())
-                );
+                return partReader.readPart(inputStream, type);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -217,7 +212,7 @@ public class GraphQlHttpHandler {
 		}
 	}
 
-    private Map<String, MultipartFile> getMultipartFiles(HttpServletRequest httpServletRequest) {
+    private static Map<String, MultipartFile> readMultipartFiles(HttpServletRequest httpServletRequest) {
         Assert.isInstanceOf(MultipartHttpServletRequest.class, httpServletRequest,
                 "Request should be of type MultipartHttpServletRequest");
         MultipartHttpServletRequest multipartHttpServletRequest = (MultipartHttpServletRequest) httpServletRequest;
