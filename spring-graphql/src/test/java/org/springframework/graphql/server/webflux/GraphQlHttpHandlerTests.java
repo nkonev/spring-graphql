@@ -106,7 +106,7 @@ public class GraphQlHttpHandlerTests {
     }
 
     @Test
-    void shouldPassTwoFiles() {
+    void shouldPassListOfFiles() {
         GraphQlHttpHandler handler = GraphQlSetup.schemaContent(
                         "type Query { ping: String } \n" +
                                 "scalar Upload\n" +
@@ -221,17 +221,14 @@ public class GraphQlHttpHandlerTests {
         LinkedMultiValueMap<String, Part> parts = new LinkedMultiValueMap<>();
 
         Map<String, List<String>> partMappings = new HashMap<>();
-        Map<String, Object> variablesFilePlaceholders = createFilePartsAndMapping(files, partMappings, (partName, resource) -> addFilePart(parts, partName, (Resource) resource));
-
-        addJsonEncodedPart(parts, "map", partMappings);
-
         Map<String, Object> operations = new HashMap<>();
         operations.put("query", body);
         Map<String, Object> variables = new HashMap<>(requestVariables);
-        variables.putAll(variablesFilePlaceholders);
+        createFilePartsAndMapping(files, variables, partMappings, (partName, resource) -> addFilePart(parts, partName, (Resource) resource));
         operations.put("variables", variables);
         addJsonEncodedPart(parts, "operations", operations);
 
+        addJsonEncodedPart(parts, "map", partMappings);
 
         MockServerRequest serverRequest = MockServerRequest.builder()
                 .exchange(exchange)

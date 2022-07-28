@@ -14,23 +14,21 @@ public final class MultipartBodyCreator {
         MultipartBodyBuilder builder = new MultipartBodyBuilder();
 
         Map<String, List<String>> partMappings = new HashMap<>();
-        Map<String, Object> variablesFilePlaceholders = createFilePartsAndMapping(multipartRequest.getFileVariables(), partMappings, builder::part);
-
-        Map<String, Object> builtOperations = multipartRequest.toMap();
-        Map<String, Object> variables = multipartRequest.getVariables();
-        variables.putAll(variablesFilePlaceholders);
-        builtOperations.put("variables", variables);
-        builder.part("operations", builtOperations);
+        Map<String, Object> operations = multipartRequest.toMap();
+        Map<String, Object> variables = new HashMap<>(multipartRequest.getVariables());
+        createFilePartsAndMapping(multipartRequest.getFileVariables(), variables, partMappings, builder::part);
+        operations.put("variables", variables);
+        builder.part("operations", operations);
 
         builder.part("map", partMappings);
         return builder.build();
     }
 
-    public static Map<String, Object> createFilePartsAndMapping(
+    public static void createFilePartsAndMapping(
             Map<String, ?> fileVariables,
+            Map<String, Object> variables,
             Map<String, List<String>> partMappings,
             BiConsumer<String, Object> partConsumer) {
-        Map<String, Object> variablesFilePlaceholders = new HashMap<>();
         int partNumber = 0;
         for (Map.Entry<String, ?> entry : fileVariables.entrySet()) {
             Object resource = entry.getValue();
@@ -48,16 +46,15 @@ public final class MultipartBodyCreator {
                     partNumber++;
                     inMappingNumber++;
                 }
-                variablesFilePlaceholders.put(variableName, placeholders);
+                variables.put(variableName, placeholders);
             } else {
                 String partName = "uploadPart" + partNumber;
                 partConsumer.accept(partName, resource);
-                variablesFilePlaceholders.put(variableName, null);
+                variables.put(variableName, null);
                 partMappings.put(partName, Collections.singletonList("variables." + variableName));
                 partNumber++;
             }
         }
-        return variablesFilePlaceholders;
     }
 
 }
