@@ -31,7 +31,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.graphql.server.support.MultipartVariableMapper;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.multipart.support.AbstractMultipartHttpServletRequest;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
 import reactor.core.publisher.Mono;
 
 import org.springframework.context.i18n.LocaleContextHolder;
@@ -196,11 +196,10 @@ public class GraphQlHttpHandler {
 
     private static Map<String, MultipartFile> readMultipartFiles(ServerRequest request) {
         HttpServletRequest httpServletRequest = request.servletRequest();
-        Assert.isInstanceOf(AbstractMultipartHttpServletRequest.class, httpServletRequest,
-                "Request should be of type AbstractMultipartHttpServletRequest");
-        AbstractMultipartHttpServletRequest abstractMultipartHttpServletRequest =
-            (AbstractMultipartHttpServletRequest) httpServletRequest;
-        return abstractMultipartHttpServletRequest.getFileMap();
+        Assert.isInstanceOf(MultipartHttpServletRequest.class, httpServletRequest,
+                "Request should be of type MultipartHttpServletRequest");
+        MultipartHttpServletRequest multipartHttpServletRequest = (MultipartHttpServletRequest) httpServletRequest;
+        return multipartHttpServletRequest.getFileMap();
     }
 
 	private static Map<String, Object> readBody(ServerRequest request) throws ServletException {
