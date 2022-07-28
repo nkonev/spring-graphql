@@ -17,6 +17,8 @@
 package org.springframework.graphql.server.webmvc;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +27,7 @@ import java.util.HashMap;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.Part;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.logging.Log;
@@ -124,27 +127,26 @@ public class GraphQlHttpHandler {
 	}
 
 	public ServerResponse handleMultipartRequest(ServerRequest serverRequest) throws ServletException {
-        Optional<String> operation = serverRequest.param("operations");
-        Optional<String> mapParam = serverRequest.param("map");
+        HttpServletRequest httpServletRequest = serverRequest.servletRequest();
 
-        Map<String, Object> inputQuery = operation
-            .map(part ->
-                partReader.<Map<String, Object>>readPart(part, MAP_PARAMETERIZED_TYPE_REF.getType())
-            )
-            .orElse(new HashMap<>());
+        Map<String, Object> inputQuery = Optional.ofNullable(this.<Map<String, Object>>deserializePart(
+            httpServletRequest,
+            "operations",
+            MAP_PARAMETERIZED_TYPE_REF.getType()
+        )).orElse(new HashMap<>());
 
 		final Map<String, Object> queryVariables = getFromMapOrEmpty(inputQuery, "variables");
 		final Map<String, Object> extensions = getFromMapOrEmpty(inputQuery, "extensions");
 
-        Map<String, MultipartFile> fileParams = readMultipartFiles(serverRequest);
+        Map<String, MultipartFile> fileParams = readMultipartFiles(httpServletRequest);
 
-		Map<String, List<String>> fileMapInput =
-            mapParam.map(part ->
-                partReader.<Map<String, List<String>>>readPart(part, LIST_PARAMETERIZED_TYPE_REF.getType())
-            )
-            .orElse(new HashMap<>());
+        Map<String, List<String>> fileMappings = Optional.ofNullable(this.<Map<String, List<String>>>deserializePart(
+                httpServletRequest,
+                "map",
+                LIST_PARAMETERIZED_TYPE_REF.getType()
+        )).orElse(new HashMap<>());
 
-		fileMapInput.forEach((String fileKey, List<String> objectPaths) -> {
+        fileMappings.forEach((String fileKey, List<String> objectPaths) -> {
 			MultipartFile file = fileParams.get(fileKey);
 			if (file != null) {
 				objectPaths.forEach((String objectPath) -> {
@@ -186,7 +188,23 @@ public class GraphQlHttpHandler {
 		return ServerResponse.async(responseMono);
 	}
 
-	private Map<String, Object> getFromMapOrEmpty(Map<String, Object> input, String key) {
+    private <T> T deserializePart(HttpServletRequest httpServletRequest, String name, Type type) {
+        try {
+            Part part = httpServletRequest.getPart(name);
+            if (part == null) {
+                return null;
+            }
+            try(InputStream inputStream = part.getInputStream()) {
+                return partReader.readPart(inputStream, type);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        } catch (IOException | ServletException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private Map<String, Object> getFromMapOrEmpty(Map<String, Object> input, String key) {
 		if (input.containsKey(key)) {
 			return (Map<String, Object>)input.get(key);
 		} else {
@@ -194,8 +212,7 @@ public class GraphQlHttpHandler {
 		}
 	}
 
-    private static Map<String, MultipartFile> readMultipartFiles(ServerRequest request) {
-        HttpServletRequest httpServletRequest = request.servletRequest();
+    private static Map<String, MultipartFile> readMultipartFiles(HttpServletRequest httpServletRequest) {
         Assert.isInstanceOf(MultipartHttpServletRequest.class, httpServletRequest,
                 "Request should be of type MultipartHttpServletRequest");
         MultipartHttpServletRequest multipartHttpServletRequest = (MultipartHttpServletRequest) httpServletRequest;

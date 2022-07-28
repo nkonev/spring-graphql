@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.core.GenericTypeResolver;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Type;
 
 public class JacksonPartReader implements PartReader {
@@ -16,10 +17,10 @@ public class JacksonPartReader implements PartReader {
     }
 
     @Override
-    public <T> T readPart(String param, Type targetType) {
+    public <T> T readPart(InputStream inputStream, Type targetType) {
         try {
             JavaType javaType = getJavaType(targetType);
-            return objectMapper.readValue(param, javaType);
+            return objectMapper.readValue(inputStream, javaType);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

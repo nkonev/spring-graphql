@@ -167,8 +167,8 @@ public class GraphQlHttpHandlerTests {
         );
         operations.put("variables", variables);
 
-        servletRequest.addParameter("operations", getJsonString(operations));
-        servletRequest.addParameter("map", getJsonString(partMappings));
+        servletRequest.addPart(new MockPart("operations", getJsonArray(operations)));
+        servletRequest.addPart(new MockPart("map", getJsonArray(partMappings)));
 
         return servletRequest;
     }
@@ -196,9 +196,9 @@ public class GraphQlHttpHandlerTests {
         }
     }
 
-    private String getJsonString(Object o) {
+    private byte[] getJsonArray(Object o) {
         try {
-            return objectMapper.writeValueAsString(o);
+            return objectMapper.writeValueAsBytes(o);
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e);
         }
