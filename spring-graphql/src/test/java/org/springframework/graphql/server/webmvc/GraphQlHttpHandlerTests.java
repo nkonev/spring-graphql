@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import javax.servlet.ServletException;
 
@@ -127,7 +128,38 @@ public class GraphQlHttpHandlerTests {
 
         assertThat(servletResponse.getContentAsString())
                 .isEqualTo("{\"data\":{\"fileUpload\":\"foo.txt\"}}");
+    }
 
+    @Test
+    void shouldPassListOfFiles() throws Exception {
+        GraphQlHttpHandler handler = GraphQlSetup.schemaContent(
+                        "type Query { ping: String } \n" +
+                                "scalar Upload\n" +
+                                "type Mutation {\n" +
+                                "    multipleFilesUpload(multipleFileInputs: [Upload!]!): [String!]!\n" +
+                                "}")
+                .mutationFetcher("multipleFilesUpload", (env) -> ((Collection<MultipartFile>) env.getVariables().get("multipleFileInputs")).stream().map(multipartFile -> multipartFile.getOriginalFilename()).collect(Collectors.toList()))
+                .runtimeWiring(builder -> builder.scalar(GraphQLScalarType.newScalar()
+                        .name("Upload")
+                        .coercing(new UploadCoercing())
+                        .build()))
+                .toHttpHandler();
+
+        Collection<Resource> resources = new ArrayList<>();
+        resources.add(new ClassPathResource("/foo.txt"));
+        resources.add(new ClassPathResource("/bar.txt"));
+
+        MockHttpServletRequest servletRequest = createMultipartServletRequest(
+                "mutation MultipleFilesUpload($multipleFileInputs: [Upload!]!) " +
+                        "{multipleFilesUpload(multipleFileInputs: $multipleFileInputs) }",
+                MediaType.APPLICATION_GRAPHQL_VALUE,
+                Collections.singletonMap("multipleFileInputs", resources)
+        );
+
+        MockHttpServletResponse servletResponse = handleMultipartRequest(servletRequest, handler);
+
+        assertThat(servletResponse.getContentAsString())
+                .isEqualTo("{\"data\":{\"multipleFilesUpload\":[\"foo.txt\",\"bar.txt\"]}}");
     }
 
 	@Test
