@@ -28,11 +28,11 @@ import java.util.concurrent.ConcurrentHashMap;
  * @author Nikita Konev
  * @since 1.0.0
  */
-final class MultipartClientGraphQlRequest extends DefaultClientGraphQlRequest implements ClientGraphQlRequest {
+public final class MultipartClientGraphQlRequest extends DefaultClientGraphQlRequest implements ClientGraphQlRequest {
 
     private final Map<String, Object> fileVariables = new ConcurrentHashMap<>();
 
-    MultipartClientGraphQlRequest(
+    public MultipartClientGraphQlRequest(
 			String document, @Nullable String operationName,
 			Map<String, Object> variables, Map<String, Object> extensions,
 			Map<String, Object> attributes,

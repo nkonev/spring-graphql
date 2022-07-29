@@ -128,13 +128,15 @@ final class DefaultGraphQlClient implements GraphQlClient {
 
         @Override
         public DefaultRequestSpec fileVariable(String name, Object value) {
+            Assert.notNull(name, "'name' is required");
+            Assert.notNull(value, "'value' is required");
             this.fileVariables.put(name, value);
             return this;
         }
 
         @Override
         public RequestSpec fileVariables(Map<String, Object> files) {
-            this.fileVariables.putAll(variables);
+            this.fileVariables.putAll(files);
             return this;
         }
 
