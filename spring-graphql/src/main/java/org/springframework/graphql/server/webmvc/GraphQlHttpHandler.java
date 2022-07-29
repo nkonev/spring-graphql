@@ -194,11 +194,7 @@ public class GraphQlHttpHandler {
             if (part == null) {
                 return null;
             }
-            try(InputStream inputStream = part.getInputStream()) {
-                return partReader.readPart(inputStream, type);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
+            return partReader.readPart(part, type);
         } catch (IOException | ServletException e) {
             throw new RuntimeException(e);
         }

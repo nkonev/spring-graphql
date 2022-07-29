@@ -1,8 +1,8 @@
 package org.springframework.graphql.server.webmvc;
 
-import java.io.InputStream;
+import javax.servlet.http.Part;
 import java.lang.reflect.Type;
 
 public interface PartReader {
-    <T> T readPart(InputStream inputStream, Type targetType);
+    <T> T readPart(Part part, Type targetType);
 }
